@@ -1,0 +1,661 @@
+<!--
+PERSONAL FINANCIAL TRACKER — FIREBASE CLOUD-SYNC EDITION
+1. Account access: Firebase Authentication email/password sign-in and password reset.
+2. Main Dashboard: combined income, expenses, budget, debt and savings.
+3. Monthly Budget: monthly targets compared with dated expense-log actuals.
+4. Income Log: dated income records, dashboard summaries and trends.
+5. Expense Log: dated expense records, categories and monthly trends.
+6. Debts and Strategy: inventory and avalanche/snowball projections.
+7. Savings Goals and Monthly Summary: progress, totals and reports.
+8. Cloud Sync: per-account Firestore records with real-time updates and offline cache.
+9. Backup: JSON import/export and opt-in migration from the earlier local tracker.
+10. GitHub Pages PWA: installable mobile interface with app shell caching.
+Setup files: firebase-config.js, firestore.rules and README.md.
+Firebase config values in the public website are NOT secrets. Never add an Admin SDK key.
+Financial data is not end-to-end encrypted. Firestore's offline browser cache is not encrypted.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#102d42">
+<meta name="description" content="Personal finance tracker with Firebase sign-in and account-based cloud synchronization across devices.">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
+<meta name="application-name" content="Personal Finance">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Personal Finance">
+<link rel="manifest" href="./manifest.webmanifest">
+<script src="./firebase-config.js"></script>
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="icon" type="image/png" href="./icon-192.png">
+<meta name="color-scheme" content="light">
+<title>Personal Finance | Synced Tracker</title>
+<style>
+:root{--navy:#102d42;--navy2:#1b3e56;--gold:#d9ad56;--teal:#187d70;--line:#dce5ea;--muted:#627b8c;--text:#172f3e;--bg:#f4f7fa;--bad:#a33d36;--good:#177651}
+*{box-sizing:border-box}html,body{min-height:100%;margin:0;font:14px/1.5 'Segoe UI',Arial,sans-serif;color:var(--text);background:var(--bg)}button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #75bdb1;outline-offset:2px}
+.hidden{display:none!important}.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:22px;background:white;border-bottom:1px solid var(--line);min-height:76px;padding:9px 24px;box-shadow:0 3px 11px #17384a08}.identity{display:flex;align-items:center;gap:11px;flex:0 0 220px}.logo{width:46px;height:46px;flex:none;border-radius:11px;border:2px solid #edd29e;background:linear-gradient(135deg,#0e455d,#217a77);color:white;display:grid;place-items:center;font-weight:850;font-size:20px}.identity b{display:block;font-size:15px}.identity small{display:block;font-size:10px;color:var(--muted);margin-top:2px}.unitnav{display:flex;gap:5px;flex:1;min-width:0;overflow:auto;padding:4px}.unitnav button{white-space:nowrap;background:transparent;border:1px solid transparent;color:#516979;border-radius:9px;padding:11px 14px;font-size:12px;font-weight:750}.unitnav button:hover{background:#eff5f5}.unitnav button.active{background:#e7f5f0;color:#0c6d5d;border-color:#b6ded3}.rightmeta{display:flex;gap:10px;align-items:center;white-space:nowrap}.pill{font-size:10px;border:1px solid #efdfbc;border-radius:100px;background:#fff6e6;color:#96661c;padding:7px 11px;font-weight:750}.avatar{width:33px;height:33px;display:grid;place-items:center;background:#e9eff3;color:#3f6077;border-radius:50%;font-size:11px;font-weight:850}
+.layout{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:calc(100vh - 76px)}.sidebar{background:var(--navy);color:#c6d8e3;display:flex;flex-direction:column;padding:25px 12px 16px;position:sticky;top:76px;height:calc(100vh - 76px);overflow:auto}.eyebrow{letter-spacing:1.7px;font-size:10px;font-weight:850;color:#96acb8;text-transform:uppercase;padding:0 13px;margin:8px 0 14px}.sectionhead{color:#7793a5;letter-spacing:1px;font-size:9px;font-weight:800;margin:20px 12px 6px;text-transform:uppercase}.sidelinks{display:grid;gap:3px}.sidelinks button{color:#c7d8e2;display:flex;align-items:center;text-align:left;gap:10px;background:none;border:0;border-radius:9px;padding:11px 12px;font-size:12px;font-weight:600;width:100%}.sidelinks button:hover{background:#20465e;color:#fff}.sidelinks button.active{background:#2b5268;color:#fff;border-left:3px solid var(--gold);padding-left:9px}.sidelinks button .ico{font-size:16px;width:21px;text-align:center;flex:none}.sidebottom{margin-top:auto;padding-top:15px}.sidetag{border:1px solid #31536b;border-radius:10px;padding:12px;color:#afc4d2;font-size:11px;line-height:1.65}.sidetag strong{color:#fff;display:block;margin-bottom:4px}.workspace{min-width:0;overflow:hidden;background:linear-gradient(135deg,#f5f9fb,#f6faf9 72%)}.page{padding:30px;max-width:1550px;margin:0 auto}.page h1{font-size:26px;margin:5px 0 7px}.page h2{font-size:16px;margin:0 0 10px}.page h3{font-size:14px;margin:0 0 9px}.page p{color:#617b8b;font-size:13px;line-height:1.65}.section-eyebrow{font-weight:850;font-size:10px;letter-spacing:1.6px;color:var(--teal);text-transform:uppercase}.unit-cover{background:linear-gradient(120deg,rgba(255,255,255,.98),rgba(245,253,250,.9));border:1px solid #d7e5ea;border-radius:16px;padding:21px 24px;margin:4px 0 23px;box-shadow:0 8px 25px #15445e0a}.unit-cover p{margin:0;max-width:900px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin:22px 0}.stat,.card{background:#fff;border:1px solid var(--line);box-shadow:0 3px 14px #133d5405;border-radius:12px;padding:20px;min-width:0}.stat small{display:block;color:#73899b;font-size:11px}.stat strong{display:block;font-size:clamp(18px,2vw,28px);color:#14334c;margin-top:8px;overflow-wrap:anywhere}.stat .sub{font-size:11px;color:var(--muted);display:block;margin-top:5px}.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}.b{border-radius:20px;background:#eff4f7;padding:4px 9px;font-size:10px;font-weight:750;color:#4b6d7d;display:inline-block}.b.good{background:#e3f5ee;color:#177651}.b.warn{background:#fff2dc;color:#95671f}.b.bad{background:#fae4e3;color:#a83a3b}.b.blue{background:#e8f1fb;color:#2e639e}.tablebox{overflow-x:auto}.tbl{width:100%;border-collapse:collapse;font-size:12px}.tbl th{text-align:left;font-size:10px;letter-spacing:.35px;text-transform:uppercase;background:#f0f5f7;color:#5b7587}.tbl th,.tbl td{border-bottom:1px solid #e4ecf0;padding:12px;vertical-align:middle;overflow-wrap:anywhere}.tbl tr:last-child td{border-bottom:0}.btn{background:#173f5a;border:1px solid #173f5a;color:white;padding:10px 15px;border-radius:8px;font-size:12px;font-weight:720;display:inline-flex;align-items:center;justify-content:center;gap:5px;text-decoration:none}.btn.secondary{background:white;border-color:#c7d8df;color:#25495c}.btn.danger{background:#fff;color:#a1363e;border-color:#e7bec4}.btn.muted{background:#ecf2f4;color:#456575;border-color:#d0dee5}.btn.small{padding:6px 9px;font-size:11px}.field{border:1px solid #cddce4;border-radius:8px;padding:10px 12px;background:white;width:100%;min-width:0}.inline-field{border:1px solid #cbdce3;border-radius:7px;padding:6px 7px;width:112px;max-width:100%;background:#fff;font-size:12px}.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.row.between{justify-content:space-between}.muted{color:#7a8e9b}.notebar{background:#fff7e6;border:1px solid #efdfb9;border-radius:9px;padding:12px 14px;color:#795819;font-size:12px;line-height:1.65;margin:14px 0}.tip{background:#e9f5f2;color:#2b6458;border:1px solid #c3e5dd;padding:13px;border-radius:9px;font-size:12px;line-height:1.65}.err{background:#fff0ef;color:#a33d36;border:1px solid #efc0be;padding:11px;border-radius:9px;font-size:12px;margin-top:14px}.footnote{font-size:11px!important;color:#7990a0!important;margin-top:18px}.empty{padding:30px 14px;text-align:center;color:#718695;font-size:12px;border:1px dashed #cbdde3;border-radius:9px;background:#f8fbfc}.progress{height:9px;background:#e9eff2;border-radius:20px;overflow:hidden}.progress>span{display:block;height:100%;background:linear-gradient(90deg,var(--teal),#5abcaa);transition:width .18s}.barpair{display:flex;align-items:center;gap:12px;padding:9px 0;font-size:12px}.barpair>span:first-child{width:118px;flex:none}.barpair .progress{flex:1}.barpair>b{width:58px;text-align:right;font-size:12px}.data-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:15px 0}.tagset{display:flex;gap:6px;flex-wrap:wrap}.mini-list{list-style:none;padding:0;margin:0}.mini-list li{padding:11px 0;border-bottom:1px solid #e4ecf0;font-size:12px}.mini-list li:last-child{border-bottom:0}.smalltext{font-size:11px;color:var(--muted)}.nowrap{white-space:nowrap}.num{font-variant-numeric:tabular-nums}.figure-good{color:#177651!important}.figure-bad{color:#a33d36!important}.segmented{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}.segmented button{background:#fff;border:0;border-right:1px solid var(--line);padding:9px 13px;font-size:12px;color:#587283}.segmented button:last-child{border:0}.segmented button.active{background:#dff1ea;color:#08695a;font-weight:800}.strategy-metric{font-size:23px;font-weight:800;margin:4px 0;color:#173f5a}.strategy-card{border-top:3px solid var(--teal)}.strategy-card.gold{border-top-color:var(--gold)}.goal-card .row{margin-bottom:10px}.page-actions{display:flex;gap:9px;flex-wrap:wrap}.two-col-label{display:grid;grid-template-columns:1fr 1fr;gap:12px}.form-label{display:block;font-size:11px;font-weight:750;color:#526d7d;margin:0 0 6px}.field-group{min-width:0}.help{display:block;color:#7990a0;font-size:11px;margin-top:5px}.error-text{color:var(--bad);font-size:12px}.notice-line{margin:12px 0}.mini-upload{padding:16px;border:1px dashed #bfd3dc;border-radius:12px;background:#f6fafb;font-size:12px;color:#657c89}.mini-upload input{max-width:100%;margin-top:10px}.budget-note{padding:10px 0;border-bottom:1px solid #e7eef1;font-size:12px}.budget-note:last-child{border-bottom:0}.summary-banner{font-size:12px;padding:12px 14px;border-radius:9px;background:#eff6fa;border:1px solid #d5e5ef;color:#36556d;margin:14px 0}
+.overlay{position:fixed;inset:0;background:#09263699;z-index:90;display:none;align-items:center;justify-content:center;padding:18px}.overlay.show{display:flex}.modal{width:min(680px,100%);max-height:92vh;overflow:auto;background:white;border-radius:15px;padding:24px;box-shadow:0 23px 70px #062b3f44}.modal h2{font-size:20px;margin:0 0 7px}.modal p{font-size:12px;color:#657f8d;line-height:1.6}.close{float:right;border:0;background:#e8eff2;border-radius:8px;padding:6px 11px;font-size:18px}.divider{border-top:1px solid #e2ecf0;margin:17px 0}.modal-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.modal-fields .wide{grid-column:1/-1}.portal-hero{background:linear-gradient(120deg,#15384e,#1b726b);color:white;border-radius:15px;padding:26px;margin:12px 0 24px}.portal-hero h1{color:white;margin:7px 0;font-size:28px}.portal-hero p{color:#e1eeee;font-size:13px;margin:0}.portal-label{display:block;font-size:11px;font-weight:750;color:#526d7d;margin:0 0 7px}.portal-input{height:45px;width:100%;border:1px solid #cbdce3;border-radius:9px;background:white;padding:0 13px}.portal-input:focus{border-color:#0c8574;box-shadow:0 0 0 3px #c3e6de;outline:none}.signin-view{min-height:100vh;padding:42px 15px;background:radial-gradient(circle at 80% 12%,#dbeee9,transparent 35%),var(--bg)}.signin-panel{max-width:520px;margin:0 auto}.signin-head{text-align:center;margin-bottom:14px}.signin-head .logo{margin:0 auto 9px}.signin-head h1{margin:0;font-size:21px}.signin-head p{color:#6f8493;font-size:12px}.protected{display:flex;align-items:center;gap:9px;color:#547387;font-size:11px;padding-top:14px}.message{font-size:12px;margin:12px 0;padding:10px;border-radius:9px}.message.bad{background:#fff0ef;color:#a33d36;border:1px solid #efc0be}.message.good{background:#e9f5f2;color:#206b56;border:1px solid #c3e5dd}#toast{position:fixed;bottom:20px;right:18px;max-width:min(410px,calc(100vw - 36px));z-index:150;background:#173f5a;color:#fff;border-radius:10px;padding:12px 17px;font-size:12px;box-shadow:0 7px 20px #081b2644;display:none}#toast.show{display:block}
+@media(max-width:1150px){.identity{flex-basis:195px}.stats{grid-template-columns:repeat(2,1fr)}.unitnav button{padding:9px 11px}}@media(max-width:800px){.modal-fields{grid-template-columns:1fr}.modal-fields .wide{grid-column:auto}.grid2,.grid3{grid-template-columns:1fr}}@media(max-width:760px){.layout{grid-template-columns:minmax(0,1fr)}.top{position:relative;flex-wrap:wrap;gap:7px;padding:8px 12px}.identity{flex:1 1 auto}.rightmeta{margin-left:auto}.unitnav{order:3;width:100%;flex:1 1 100%}.layout{grid-template-columns:1fr}.sidebar{position:relative;top:auto;height:auto;overflow:hidden;min-width:0;padding:9px}.sidebar .eyebrow,.sidetag,.sectionhead{display:none}.sidelinks{display:flex;overflow-x:auto;min-width:0;max-width:100%}.sidelinks button{width:auto;white-space:nowrap}.page{padding:19px 13px}.unit-cover{padding:18px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stat{padding:15px}.stat strong{font-size:20px}.pill{display:none}}@media(max-width:430px){.stats{gap:8px}.stat{padding:12px}.stat strong{font-size:17px}.modal{padding:16px}.barpair>span:first-child{width:95px}}
+
+
+/* v2: dated transaction ledgers, monthly budget comparison and integrated overview */
+.month-control{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;padding:6px 10px;border:1px solid #cddfe6;border-radius:9px;background:#fff;font-size:11px;font-weight:750;color:#526c7e}
+.month-control input{border:0;background:transparent;color:#12374c;min-width:118px;width:136px;font-size:12px;outline:0}
+.cash-bar{display:flex;height:13px;background:#edf2f4;border-radius:8px;overflow:hidden;margin-top:9px;min-width:30px}
+.cash-bar .fill{background:var(--teal);display:block;min-width:0}
+.cash-bar .fill.over{background:#c48a3d}
+.comparison{width:100%;border-collapse:collapse;font-size:12px}
+.comparison th{padding:12px;text-align:left;background:#f0f5f7;color:#526e80;text-transform:uppercase;font-size:10px;letter-spacing:.35px}
+.comparison td{padding:13px 12px;border-bottom:1px solid #e3ebef;vertical-align:middle}
+.comparison tr:last-child td{border-bottom:0}
+.comparison .catbar{min-width:140px;max-width:230px}
+.metric-up{color:#167652!important}.metric-down{color:#a33d36!important}
+.trend{display:flex;align-items:flex-end;gap:8px;min-height:154px;padding:15px 0 0}
+.trend .month-group{flex:1;display:flex;flex-direction:column;gap:5px;align-items:center;justify-content:flex-end;min-width:0}
+.trend .column-pair{height:112px;display:flex;align-items:flex-end;justify-content:center;gap:4px;width:100%}
+.trend .column{background:var(--teal);width:18px;max-width:45%;border-radius:5px 5px 0 0;min-height:2px}
+.trend .column.out{background:var(--gold)}
+.trend .month-label{font-size:10px;color:#617b8b;white-space:nowrap}
+.trend-key{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:#627b8c}
+.trend-key span:before{content:'';display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;background:var(--teal)}
+.trend-key span.out:before{background:var(--gold)}
+.kpi-caption{font-size:11px;color:#6c8292;line-height:1.6}
+.flat-list{display:grid;gap:10px;margin:8px 0}
+.flat-list .line{display:flex;gap:8px;justify-content:space-between;align-items:center;border-bottom:1px solid #e7eff1;padding:9px 0;font-size:12px}
+.flat-list .line:last-child{border:0}
+.positive-note{color:#167652}.negative-note{color:#a33d36}
+.table-actions{white-space:nowrap}
+.action-tiles{display:flex;gap:8px;flex-wrap:wrap}
+.mini-link{font-size:12px;color:var(--teal);font-weight:700}
+@media(max-width:760px){.month-control{width:100%;justify-content:space-between}.month-control input{width:150px}.comparison .catbar{min-width:80px}.comparison th,.comparison td{padding:10px 8px}.page-actions{width:100%}.trend .column-pair{height:90px}}
+
+/* Mobile app shell; preserves the original dashboard, forms, tables and palette. */
+.mobile-bottom,.mobile-sheet,.mobile-shade,.mobile-fab{display:none}
+button,input,select,textarea{-webkit-tap-highlight-color:transparent}
+.mobile-bottom button,.mobile-sheet button{touch-action:manipulation}
+body{overscroll-behavior-y:none}
+@media(max-width:760px){
+ html,body{width:100%;max-width:100%;overflow-x:hidden}
+ .top{position:sticky;top:0;z-index:22;min-height:61px;gap:5px;padding:8px 13px;padding-top:max(8px,env(safe-area-inset-top))}
+ .top .identity{flex:1 1 auto;min-width:0}
+ .top .logo{width:41px;height:41px;font-size:18px}
+ .top .identity b{font-size:14px}.top .identity small{font-size:9px}
+ .unitnav,.sidebar{display:none}
+ .rightmeta{gap:6px}.rightmeta .avatar{display:none}.rightmeta .btn{min-height:42px}
+ .layout{display:block;min-height:calc(100dvh - 60px)}
+ .page{padding:17px 13px max(116px,calc(105px + env(safe-area-inset-bottom)))}
+ .unit-cover{padding:17px;border-radius:15px;margin-bottom:14px}
+ .unit-cover h1{font-size:23px;line-height:1.2}
+ .unit-cover p{font-size:12px}
+ .grid2,.grid3{grid-template-columns:minmax(0,1fr)}
+ .stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .stat{padding:13px}.stat strong{font-size:clamp(16px,4.7vw,23px);overflow-wrap:anywhere}
+ .stat small{font-size:10px}
+ .card{padding:16px;min-width:0;overflow-wrap:anywhere}
+ .row{gap:9px}.page-actions{width:100%}.month-control{width:100%}
+ .btn,.access-btn{min-height:43px}
+ .field,.portal-input,select,textarea,input[type="date"],input[type="month"]{font-size:16px;min-height:44px}
+ .modal{width:100%;max-height:min(90dvh,850px);border-radius:18px 18px 0 0;padding:19px 17px max(22px,env(safe-area-inset-bottom));margin-top:auto}
+ .overlay{padding:0;align-items:flex-end}
+ .comparison,.tbl{min-width:500px}.tablebox{overflow-x:auto;-webkit-overflow-scrolling:touch}
+ .comparison .catbar{min-width:75px}
+ .mobile-bottom{position:fixed;inset:auto 0 0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:stretch;z-index:52;min-height:66px;padding:5px 4px max(4px,env(safe-area-inset-bottom));background:#fff;border-top:1px solid #d6e4e8;box-shadow:0 -8px 22px #102d4215}
+ .mobile-bottom button{color:#617b8b;background:transparent;border:0;border-radius:9px;min-height:56px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;padding:3px 0;font-size:10px;font-weight:750}
+ .mobile-bottom button .nav-icon{font-size:22px;line-height:1.2}
+ .mobile-bottom button.active{color:#136f61;background:#e6f4ef}
+ .mobile-bottom button.active .nav-icon{color:#136f61}
+ .mobile-bottom button[aria-expanded="true"]{background:#edf3f5;color:#102d42}
+ .mobile-fab{position:fixed;display:grid;place-items:center;right:16px;bottom:calc(86px + env(safe-area-inset-bottom));width:54px;height:54px;border:2px solid #e9cf96;background:var(--navy2);color:white;border-radius:50%;font-size:28px;box-shadow:0 7px 23px #102d4250;z-index:46}
+ .mobile-shade.show{display:block;position:fixed;inset:0;background:#09263670;z-index:43}
+ .mobile-sheet.show{display:block;position:fixed;left:10px;right:10px;bottom:calc(72px + env(safe-area-inset-bottom));background:#fff;border:1px solid #dce7ea;border-radius:17px;padding:14px;box-shadow:0 12px 34px #102d4247;z-index:51;max-height:65dvh;overflow:auto}
+ .mobile-sheet .sheet-heading{margin:2px 3px 12px;font-size:14px;color:#173f5a;font-weight:800}
+ .mobile-sheet .sheet-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .mobile-sheet button{border:1px solid #d5e4e9;background:#f5f9fa;border-radius:11px;padding:11px 9px;text-align:left;color:#244c5c;min-height:49px;font-size:12px;font-weight:750}
+ .mobile-sheet button:focus-visible,.mobile-bottom button:focus-visible,.mobile-fab:focus-visible{outline:3px solid #d9ad56;outline-offset:2px}
+ #toast{bottom:calc(93px + env(safe-area-inset-bottom));right:12px;left:12px;max-width:none}
+ .signin-view{min-height:100dvh;padding:24px 13px max(26px,env(safe-area-inset-bottom))}
+ .signin-panel{max-width:520px}.portal-hero{margin:12px 0 15px}
+}
+@media(max-width:380px){.mobile-bottom button{font-size:9px}.stat strong{font-size:16px}.mobile-sheet .sheet-list{grid-template-columns:1fr 1fr}.page{padding-inline:10px}}
+@media(min-width:761px){.mobile-bottom,.mobile-fab,.mobile-sheet,.mobile-shade{display:none!important}}
+
+/* Firebase account portal, live cloud sync status and migration prompt */
+.cloud-status{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:750;color:#326a65;border:1px solid #c9e3dd;padding:7px 11px;border-radius:99px;background:#e9f7f3;max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cloud-status.warn{background:#fff5de;border-color:#ecd8ac;color:#8a661f}.cloud-status.bad{background:#fff0ef;border-color:#ebc9c3;color:#a33d36}
+.migration-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#fff8e8;border:1px solid #ebdbba;border-radius:12px;padding:14px 16px;color:#604b2e;margin:0 0 16px}
+.migration-banner p{margin:5px 0 0;color:#6e644e;font-size:12px}
+.gate-helper{margin:12px 0 0;font-size:12px;color:#627d8e;line-height:1.6}
+.gate-helper .btn{margin-top:7px}
+.cloud-account{overflow-wrap:anywhere;font-size:12px;color:#607d8b}
+@media(max-width:760px){.cloud-status{font-size:9px;padding:5px 8px;max-width:132px}.top .identity small{display:none}.top .rightmeta .btn{padding:8px}.migration-banner .btn{width:100%}}
+</style>
+</head>
+<body>
+<section id="signin" class="signin-view">
+ <div class="signin-panel">
+  <div class="signin-head"><div class="logo" aria-hidden="true">₱</div><h1>Personal Financial Tracker</h1><p>One account, synchronized on phone and PC</p></div>
+  <div class="portal-hero"><div class="section-eyebrow" style="color:#ecd49d">CLOUD FINANCIAL PORTAL</div><h1 id="gateHeading">Sign in to your financial account</h1><p id="gateSub">Use the email and password registered in your Firebase project.</p></div>
+  <div class="card">
+   <form id="gateForm">
+    <div class="field-group"><label class="portal-label" for="gateEmail">Email address</label><input class="portal-input" id="gateEmail" type="email" autocomplete="username" inputmode="email" maxlength="254" required></div>
+    <div class="field-group" style="margin-top:14px"><label class="portal-label" for="gatePassword" id="passwordLabel">Account password</label><input class="portal-input" id="gatePassword" type="password" autocomplete="current-password" required></div>
+    <div id="gateMessage" role="alert" aria-live="polite"></div>
+    <div class="row" style="margin-top:17px"><button class="btn" type="submit" id="gateButton">Sign in</button><button class="btn secondary" id="forgotPasswordButton" type="button">Reset password</button></div>
+   </form>
+   <div class="protected">◈ &nbsp;Authentication by Firebase. Only your signed-in account is authorized to read its Firestore records.</div>
+  </div>
+  <p class="footnote">Setup requires Firebase Authentication, Cloud Firestore and the private-per-user rules included in this package. Financial records are sent to your Firebase project and cached on your device without end-to-end encryption. Use a private device and export JSON backups.</p>
+  <button type="button" id="installAppButton" class="btn secondary hidden" aria-label="Install Personal Finance app">Install on this device</button>
+ </div>
+</section>
+<div id="app" class="hidden">
+  <header class="top">
+    <div class="identity"><div class="logo" aria-hidden="true">₱</div><div><b>Personal Finance</b><small>PRIVATE ACCOUNT · CLOUD SYNC</small></div></div>
+    <nav class="unitnav" id="topnav" aria-label="Main sections"></nav>
+    <div class="rightmeta"><span class="cloud-status warn" id="cloudStatus" role="status">Connecting…</span><span class="avatar" id="accountAvatar" aria-hidden="true">ME</span><button class="btn secondary small" id="signout" type="button">Sign out</button></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar"><div class="eyebrow">My Workspace</div><div class="sidelinks" id="sidelinks"></div><div class="sidebottom"><div class="sidetag"><strong>CLOUD-SYNC WORKSPACE</strong>Finance records sync with your Firebase account. No bank connection. Keep a separate JSON backup.</div></div></aside>
+    <main id="main" class="workspace" tabindex="-1"></main>
+  </div>
+
+<!-- Mobile-only quick navigation and accessible action sheets -->
+<div id="mobileShade" class="mobile-shade" aria-hidden="true"></div>
+<nav id="mobileNav" class="mobile-bottom" aria-label="Mobile sections">
+  <button type="button" data-page="dashboard" aria-label="Home dashboard"><span class="nav-icon" aria-hidden="true">⌂</span>Home</button>
+  <button type="button" data-page="incomeLog" aria-label="Income dashboard"><span class="nav-icon" aria-hidden="true">↑</span>Income</button>
+  <button type="button" data-page="expenseLog" aria-label="Expenses dashboard"><span class="nav-icon" aria-hidden="true">↓</span>Expenses</button>
+  <button type="button" data-page="budget" aria-label="Monthly budget"><span class="nav-icon" aria-hidden="true">▤</span>Budget</button>
+  <button type="button" id="mobileMoreButton" aria-expanded="false" aria-controls="mobileMore" aria-label="More financial sections"><span class="nav-icon" aria-hidden="true">☰</span>More</button>
+</nav>
+<button id="mobileAddButton" class="mobile-fab" type="button" aria-label="Add income or expense" aria-expanded="false" aria-controls="mobileQuick">+</button>
+<div id="mobileMore" class="mobile-sheet" role="group" aria-label="More financial sections" aria-hidden="true">
+ <div class="sheet-heading">More financial tools</div>
+ <div class="sheet-list">
+  <button type="button" data-page="debts">Credit &amp; Debt</button>
+  <button type="button" data-page="strategy">Loan Strategy</button>
+  <button type="button" data-page="savings">Savings Goals</button>
+  <button type="button" data-page="summary">Monthly Summary</button>
+  <button type="button" data-page="settings">Backup &amp; Settings</button>
+  <button type="button" data-lock="1">Sign out of account</button>
+ </div>
+</div>
+<div id="mobileQuick" class="mobile-sheet" role="group" aria-label="Log a transaction" aria-hidden="true">
+ <div class="sheet-heading">Record a transaction</div>
+ <div class="sheet-list">
+  <button type="button" data-add="incomeLog">+ Income received</button>
+  <button type="button" data-add="expenseLog">+ Expense or debt payment</button>
+ </div>
+</div>
+
+</div>
+<div id="overlay" class="overlay" aria-hidden="true"><div id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+'use strict';
+const DATA_KEY='pft.data.v1'; // Retained only for opt-in migration of previous on-device records.
+const NAV=[['dashboard','Overview','▦'],['budget','Monthly Budget','▤'],['incomeLog','Income & Log','↑'],['expenseLog','Expenses & Log','↓'],['debts','Credit & Debt','▣'],['strategy','Loan Strategy','⇄'],['savings','Savings Goals','◈'],['summary','Monthly Summary','▥'],['settings','Backup & Settings','⚙']];
+const CATEGORIES=['Housing','Food & Groceries','Utilities','Transportation','Healthcare','Insurance','Education','Family','Personal & Leisure','Subscriptions','Other'];
+const EXPENSE_CATEGORIES=[...CATEGORIES,'Debt Payments'];
+const PAY_METHODS=['Cash','Bank Transfer','Debit Card','Credit Card','E-wallet','Other'];
+const TYPES=['Credit Card','Personal Loan','Auto Loan','Home Loan','Buy Now Pay Later','Line of Credit','Other'];
+const today=new Date();
+const currentMonth=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
+const emptyData=()=>({schemaVersion:2,income:[],expenses:[],incomeLog:[],expenseLog:[],debts:[],goals:[],snapshots:[],settings:{monthlySavings:0,paymentMode:'auto',manualPayment:0}});
+let state=emptyData(),page='dashboard',viewMonth=currentMonth(),authenticated=false,oldFocus=null,toastTimer=null;
+const $=s=>document.querySelector(s);
+const money=n=>new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP',minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(n)||0);
+const fmt=n=>new Intl.NumberFormat('en-PH',{maximumFractionDigits:1}).format(Number(n)||0);
+const r2=n=>Math.round((Number(n)+Number.EPSILON)*100)/100;
+const number=n=>{const v=Number(n);return Number.isFinite(v)?v:0};
+const positive=n=>Math.max(0,number(n));
+const id=()=>('i'+Date.now().toString(36)+Math.random().toString(36).slice(2,9));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sum=(list,key)=>r2(list.reduce((total,item)=>total+positive(item[key]),0));
+const text=(s,n=120)=>String(s??'').trim().slice(0,n);
+function safeSave(){if(!authenticated || !window.financeCloud?.ready){toast('Your cloud account is not ready. Connect and sign in.');return false}window.financeCloud.queueChanges(state);return true}
+function getStore(key){try{return localStorage.getItem(key)}catch{return null}}
+function cleanArray(arr,fn){return Array.isArray(arr)?arr.map(fn).filter(Boolean):[]}
+function cleanMoney(v){return r2(Math.min(1e12,positive(v)))}
+function validateData(raw){
+ if(!raw||typeof raw!=='object'||![1,2].includes(raw.schemaVersion)||!Array.isArray(raw.income)||!Array.isArray(raw.expenses)||!Array.isArray(raw.debts)||!Array.isArray(raw.goals)||!Array.isArray(raw.snapshots))throw Error('This is not a supported tracker backup.');
+ const isMonth=s=>/^\d{4}-(0[1-9]|1[0-2])$/.test(String(s||''));
+ const isDate=s=>{const v=String(s||'');if(!/^\d{4}-(0[1-9]|1[0-2])-([0-2]\d|3[01])$/.test(v))return false;const d=new Date(v+'T12:00:00');return !isNaN(d.getTime())&&d.getFullYear()===Number(v.slice(0,4))&&d.getMonth()+1===Number(v.slice(5,7))&&d.getDate()===Number(v.slice(8,10))};
+ const unique=arr=>{const seen=new Set();for(const x of arr){if(!x.id||!/^[A-Za-z0-9_-]{1,50}$/.test(x.id)||seen.has(x.id))x.id=id();seen.add(x.id)}return arr};
+ return {schemaVersion:2,
+  income:unique(cleanArray(raw.income,x=>x&&typeof x==='object'?{id:text(x.id,50)||id(),name:text(x.name),amount:cleanMoney(x.amount)}:null)),
+  expenses:unique(cleanArray(raw.expenses,x=>x&&typeof x==='object'?{id:text(x.id,50)||id(),month:isMonth(x.month)?x.month:currentMonth(),category:CATEGORIES.includes(x.category)?x.category:'Other',kind:x.kind==='Flexible'?'Flexible':'Essential',name:text(x.name),planned:cleanMoney(x.planned),actual:cleanMoney(x.actual)}:null)),
+  incomeLog:unique(cleanArray(raw.incomeLog,x=>x&&typeof x==='object'&&isDate(x.date)?{id:text(x.id,50)||id(),date:x.date,source:text(x.source),amount:cleanMoney(x.amount),note:text(x.note,240)}:null)),
+  expenseLog:unique(cleanArray(raw.expenseLog,x=>x&&typeof x==='object'&&isDate(x.date)?{id:text(x.id,50)||id(),date:x.date,category:EXPENSE_CATEGORIES.includes(x.category)?x.category:'Other',payee:text(x.payee),method:PAY_METHODS.includes(x.method)?x.method:'Cash',amount:cleanMoney(x.amount),note:text(x.note,240)}:null)),
+  debts:unique(cleanArray(raw.debts,x=>x&&typeof x==='object'?{id:text(x.id,50)||id(),lender:text(x.lender),type:TYPES.includes(x.type)?x.type:'Other',balance:cleanMoney(x.balance),apr:Math.min(1000,positive(x.apr)),minimum:cleanMoney(x.minimum),dueDay:Math.min(31,Math.max(1,Math.round(positive(x.dueDay)||1)))}:null)),
+  goals:unique(cleanArray(raw.goals,x=>x&&typeof x==='object'?{id:text(x.id,50)||id(),name:text(x.name),target:cleanMoney(x.target),saved:cleanMoney(x.saved),deadline:isDate(x.deadline)?x.deadline:''}:null)),
+  snapshots:unique(cleanArray(raw.snapshots,x=>x&&typeof x==='object'&&isMonth(x.month)?{id:text(x.id,50)||id(),month:x.month,income:cleanMoney(x.income),planned:cleanMoney(x.planned),spent:cleanMoney(x.spent),minimums:cleanMoney(x.minimums),savings:cleanMoney(x.savings),note:text(x.note,300)}:null)),
+  settings:{monthlySavings:cleanMoney(raw.settings?.monthlySavings),paymentMode:raw.settings?.paymentMode==='manual'?'manual':'auto',manualPayment:cleanMoney(raw.settings?.manualPayment)}
+ };
+}
+function showGate(message=''){
+ dismissMobileSheets();authenticated=false;state=emptyData();
+ $('#app').classList.add('hidden');$('#signin').classList.remove('hidden');
+ $('#gateHeading').textContent='Sign in to your financial account';
+ $('#gateSub').textContent='Use the same Firebase email and password on your phone and PC.';
+ $('#gateButton').textContent='Sign in';$('#gatePassword').value='';
+ $('#gateMessage').innerHTML=message?'<div class="message bad">'+esc(message)+'</div>':'';
+}
+async function gateSubmit(e){
+ e.preventDefault();const btn=$('#gateButton'),email=$('#gateEmail').value.trim(),password=$('#gatePassword').value;
+ btn.disabled=true;$('#gateMessage').innerHTML='';
+ try{
+  if(!window.financeCloud?.configured)throw Error('Firebase is not configured. See README.md and firebase-config.js.');
+  await window.financeCloud.signIn(email,password);
+ }catch(error){$('#gateMessage').innerHTML='<div class="message bad">'+esc(window.financeCloud?.friendlyError?.(error)||error.message)+'</div>'}
+ finally{btn.disabled=false;$('#gatePassword').value=''}
+}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),3800)}
+
+let deferredInstallPrompt=null;
+function dismissMobileSheets(){
+ for(const name of ['mobileMore','mobileQuick']){const el=$('#'+name);if(el){el.classList.remove('show');el.setAttribute('aria-hidden','true')}}
+ $('#mobileShade')?.classList.remove('show');
+ const more=$('#mobileMoreButton'),add=$('#mobileAddButton');
+ if(more)more.setAttribute('aria-expanded','false');
+ if(add)add.setAttribute('aria-expanded','false');
+}
+function toggleMobileSheet(name){
+ const el=$('#'+name),wasOpen=el?.classList.contains('show');dismissMobileSheets();
+ if(!el||wasOpen)return;
+ el.classList.add('show');el.setAttribute('aria-hidden','false');$('#mobileShade')?.classList.add('show');
+ (name==='mobileMore' ? $('#mobileMoreButton') : $('#mobileAddButton'))?.setAttribute('aria-expanded','true');
+}
+function refreshMobileNav(){
+ document.querySelectorAll('#mobileNav [data-page]').forEach(b=>{
+  const active=page===b.dataset.page;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false')
+ });
+ const moreActive=['debts','strategy','savings','summary','settings'].includes(page);
+ $('#mobileMoreButton')?.classList.toggle('active',moreActive)
+}
+window.mobileBack=function(){
+ if($('#overlay')?.classList.contains('show')){modalClose();return true}
+ if($('#mobileMore')?.classList.contains('show')||$('#mobileQuick')?.classList.contains('show')){dismissMobileSheets();return true}
+ if(authenticated&&page!=='dashboard'){navigate('dashboard');return true}
+ return false
+};
+window.addEventListener('beforeinstallprompt',e=>{
+ e.preventDefault();deferredInstallPrompt=e;$('#installAppButton')?.classList.remove('hidden')
+});
+window.addEventListener('appinstalled',()=>{deferredInstallPrompt=null;$('#installAppButton')?.classList.add('hidden')});
+
+function drawNav(){
+ const nav=NAV.map(([key,label])=>`<button type="button" data-page="${key}" class="${page===key?'active':''}" aria-current="${page===key?'page':'false'}">${esc(label)}</button>`).join('');
+ $('#topnav').innerHTML=nav;
+ let menu='';NAV.forEach(([key,label,ico],i)=>{if(i===0)menu+='<div class="sectionhead">FINANCIAL OVERVIEW</div>';if(i===1)menu+='<div class="sectionhead">BUDGET & TRANSACTIONS</div>';if(i===4)menu+='<div class="sectionhead">DEBT & PLANNING</div>';if(i===7)menu+='<div class="sectionhead">RECORDS & SETTINGS</div>';menu+=`<button type="button" data-page="${key}" class="${page===key?'active':''}"><span class="ico" aria-hidden="true">${ico}</span>${esc(label)}</button>`});$('#sidelinks').innerHTML=menu;refreshMobileNav()
+}
+function navigate(next){if(!authenticated||!NAV.some(n=>n[0]===next))return;dismissMobileSheets();page=next;drawNav();render();window.scrollTo({top:0,behavior:'instant'})}
+const forMonth=(list,month=viewMonth)=>list.filter(x=>x.date?.slice(0,7)===month);
+const budgetRows=(month=viewMonth)=>state.expenses.filter(x=>x.month===month);
+const loggedIncome=(month=viewMonth)=>sum(forMonth(state.incomeLog,month),'amount');
+const loggedExpense=(month=viewMonth,includeDebt=false)=>sum(forMonth(state.expenseLog,month).filter(x=>includeDebt||x.category!=='Debt Payments'),'amount');
+const debtPaid=(month=viewMonth)=>sum(forMonth(state.expenseLog,month).filter(x=>x.category==='Debt Payments'),'amount');
+function figures(month=viewMonth){
+ const income=sum(state.income,'amount'), planned=sum(budgetRows(month),'planned'), actual=loggedExpense(month),actualIncome=loggedIncome(month),actualDebt=debtPaid(month);
+ const debt=sum(state.debts,'balance'),minimums=sum(state.debts.filter(d=>d.balance>0),'minimum'),savings=positive(state.settings.monthlySavings);
+ const afterPlan=r2(income-planned-savings),afterMin=r2(afterPlan-minimums),essential=r2(sum(budgetRows(month).filter(e=>e.kind==='Essential'),'planned')+minimums),flexible=sum(budgetRows(month).filter(e=>e.kind==='Flexible'),'planned');
+ return {income,planned,actual,actualIncome,actualDebt,cashOut:r2(actual+actualDebt),cashNet:r2(actualIncome-actual-actualDebt),variance:r2(planned-actual),debt,minimums,savings,afterPlan,afterMin,essential,flexible};
+}
+const seriesMonths=(count=6)=>{const [y,m]=viewMonth.split('-').map(Number);return Array.from({length:count},(_,i)=>{const d=new Date(y,m-count+i,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')})};
+function categoryTotals(month=viewMonth){return CATEGORIES.map(category=>({category,planned:r2(sum(budgetRows(month).filter(x=>x.category===category),'planned')),actual:r2(sum(forMonth(state.expenseLog,month).filter(x=>x.category===category),'amount'))})).filter(x=>x.planned>0||x.actual>0)}
+const percent=(part,total)=>total>0?Math.round(part/total*1000)/10:0;
+function trendChart(showIncome=true,showExpense=true){const months=seriesMonths(),rows=months.map(month=>({month,inc:loggedIncome(month),out:loggedExpense(month,true)})),top=Math.max(1,...rows.flatMap(x=>[x.inc,x.out]));return `<div class="trend" role="img" aria-label="Income and outflow comparison for recent six months">${rows.map(x=>`<div class="month-group"><div class="column-pair">${showIncome?`<div class="column" title="${esc(x.month)} income: ${money(x.inc)}" style="height:${Math.max(x.inc?2:0,x.inc/top*100)}%"></div>`:''}${showExpense?`<div class="column out" title="${esc(x.month)} outflow: ${money(x.out)}" style="height:${Math.max(x.out?2:0,x.out/top*100)}%"></div>`:''}</div><div class="month-label">${esc(x.month.slice(5))}/${esc(x.month.slice(2,4))}</div></div>`).join('')}</div><div class="trend-key">${showIncome?'<span>Income received</span>':''}${showExpense?'<span class="out">Spending incl. debt payments</span>':''}</div>`}
+function paymentCapacity(f){return state.settings.paymentMode==='manual'?positive(state.settings.manualPayment):Math.max(0,f.afterPlan)}
+function stat(label,value,sub='',tone=''){return `<div class="stat"><small>${esc(label)}</small><strong class="num ${tone}">${esc(value)}</strong>${sub?`<span class="sub">${esc(sub)}</span>`:''}</div>`}
+function head(eye,title,desc,actions=''){
+ const monthPicker=page==='settings'||page==='savings'||page==='debts'?'':`<label class="month-control" for="viewMonth">Reporting month <input id="viewMonth" type="month" value="${esc(viewMonth)}"></label>`;
+ return `<div class="unit-cover"><div class="row between"><div><div class="section-eyebrow">${esc(eye)}</div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><div class="page-actions">${monthPicker}${actions||''}</div></div></div>`;
+}
+function empty(msg){return `<div class="empty">${esc(msg)}</div>`}
+function badge(v){return `<span class="b ${v==='Good'?'good':v==='Warning'?'warn':'bad'}">${esc(v)}</span>`}
+function summarizeBudget(f){if(f.income<=0)return ['Add monthly income and your expenses to start a budget assessment.','Warning'];if(f.afterPlan<0)return [`Planned living expenses and savings exceed income by ${money(-f.afterPlan)} before debt payments. Reduce costs or adjust the plan.`, 'Warning'];if(f.afterMin<0)return [`After planned expenses and savings, debt minimums exceed available funds by ${money(-f.afterMin)}. Paying all minimums is not affordable under this plan.`, 'Warning'];if(f.afterMin>=f.income*.2)return [`Your plan leaves ${money(f.afterMin)} (${fmt(f.afterMin/f.income*100)}% of income) after savings set-aside and debt minimums. Consider directing a portion to emergency savings or additional debt payments.`, 'Good'];return [`Your plan leaves ${money(f.afterMin)} after savings set-aside and debt minimums. Consider reviewing flexible spending and keeping cash for unexpected costs.`, 'Good']}
+function guidance(f){let items=[];const [msg]=summarizeBudget(f);items.push(msg);if(f.income>0){const needs=f.essential/f.income*100,flex=f.flexible/f.income*100;items.push(`Essentials plus debt minimums use ${fmt(needs)}% of income. The common 50/30/20 guide uses about 50% for needs, 30% for wants and 20% for saving or additional debt payments. It is a reference, not a required rule.`);items.push(`Flexible spending uses ${fmt(flex)}% of income. Track actual spending regularly and adjust planned amounts if they differ.`)}else items.push('Add your real figures to receive personalized budget guidance.');return items.map(s=>`<div class="budget-note">${esc(s)}</div>`).join('')}
+function dashboard(){
+ const f=figures(),[message,status]=summarizeBudget(f),active=state.debts.filter(d=>d.balance>0),due=active.slice().sort((a,b)=>a.dueDay-b.dueDay).slice(0,4),recent=[...forMonth(state.incomeLog).map(x=>({...x,entry:'Income',label:x.source,amount:x.amount})),...forMonth(state.expenseLog).map(x=>({...x,entry:'Expense',label:x.payee||x.category,amount:-x.amount}))].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6);
+ const expenseText=f.planned>0?`${fmt(percent(f.actual,f.planned))}% of budget used`:f.actual>0?'No budget entered':'No spending logged';
+ const deltaTone=f.variance<0?'metric-down':'metric-up';
+ return head('FINANCIAL COMMAND CENTER','My Financial Dashboard','One overview of your selected month: actual transactions, budget targets, debt and savings.',`<button class="btn" data-go="expenseLog">+ Log expense</button>`)+`
+ <div class="stats">${stat('Actual income received',money(f.actualIncome),`Expected: ${money(f.income)}`)}${stat('Actual living expenses',money(f.actual),expenseText)}${stat('Budget variance',money(f.variance),f.variance>=0?'Budget remaining':'Over budget',deltaTone)}${stat('Net logged cash flow',money(f.cashNet),'Income minus logged expenses and debt payments',f.cashNet<0?'metric-down':'metric-up')}${stat('Budgeted living expenses',money(f.planned),'For selected month')}${stat('Logged debt payments',money(f.actualDebt),'Actual payments you entered')}${stat('Total debt outstanding',money(f.debt),`${active.length} accounts`)}${stat('Minimum debt payments',money(f.minimums),'Monthly obligation from inventory')}</div>
+ <div class="grid2"><section class="card"><div class="row between"><h2>Budget vs actual spending</h2><button class="btn secondary small" data-go="budget">View monthly budget</button></div><div class="row between"><span class="smalltext">${money(f.actual)} spent of ${money(f.planned)} planned</span><b class="${deltaTone}">${f.variance>=0?money(f.variance)+' left':money(-f.variance)+' over'}</b></div><div class="cash-bar"><span class="fill ${f.actual>f.planned?'over':''}" style="width:${Math.min(100,percent(f.actual,f.planned||f.actual||1))}%"></span></div><div class="divider"></div>${categoryTotals().slice().sort((a,b)=>b.actual-a.actual).slice(0,4).map(x=>`<div class="flat-list"><div class="line"><span>${esc(x.category)}</span><span>${money(x.actual)} / ${money(x.planned)}</span></div></div>`).join('')||empty('Enter a monthly budget and expense entries to compare categories.')}</section>
+ <section class="card"><div class="row between"><h2>Income and spending trend</h2><button class="btn secondary small" data-go="summary">Monthly summary</button></div>${trendChart(true,true)}<p class="footnote">Bars show the last six months of dated transactions. The spending bar includes logged debt payments.</p></section>
+ <section class="card"><div class="row between"><h2>Recent transactions</h2><div class="action-tiles"><button class="btn secondary small" data-go="incomeLog">Income</button><button class="btn secondary small" data-go="expenseLog">Expenses</button></div></div>${recent.length?`<div class="flat-list">${recent.map(x=>`<div class="line"><span><b>${esc(x.label||x.entry)}</b><div class="smalltext">${esc(x.date)} · ${esc(x.entry)}</div></span><b class="${x.entry==='Income'?'positive-note':'negative-note'}">${x.entry==='Income'?'+':'−'}${money(Math.abs(x.amount))}</b></div>`).join('')}</div>`:empty('Record income and expenses to see activity here.')}</section>
+ <section class="card"><div class="row between"><h2>Budget and debt readiness</h2>${badge(status)}</div><div class="tip">${esc(message)}</div><div class="divider"></div><div class="flat-list"><div class="line"><span>Available for debt payments (planned)</span><b>${money(Math.max(0,f.afterPlan))}</b></div><div class="line"><span>Left after listed minimums (planned)</span><b class="${f.afterMin<0?'negative-note':''}">${money(f.afterMin)}</b></div><div class="line"><span>Savings targets funded</span><b>${money(sum(state.goals,'saved'))}</b></div></div><div class="row"><button class="btn secondary small" data-go="strategy">Repayment strategy</button><button class="btn secondary small" data-go="savings">Savings goals</button></div></section>
+ <section class="card"><div class="row between"><h2>Upcoming due days</h2><button class="btn secondary small" data-go="debts">Credit accounts</button></div>${due.length?`<ul class="mini-list">${due.map(d=>`<li class="row between"><span>${esc(d.lender)} <span class="smalltext">· Day ${d.dueDay} monthly</span></span><b>${money(d.minimum)}</b></li>`).join('')}</ul>`:empty('Add loans or credit accounts to show their due days.')}</section>
+ <section class="card"><div class="row between"><h2>Monthly record reminders</h2><span class="b blue">Selected: ${esc(viewMonth)}</span></div><p>Use the income and expense logs for money actually received or paid. Use Monthly Budget for expected living costs. Debt minimums are planned obligations, not transactions until you log a payment.</p><div class="row"><button class="btn small" data-add="incomeLog">+ Income entry</button><button class="btn secondary small" data-add="expenseLog">+ Expense entry</button></div></section></div>`;
+}
+function incomeRows(){return state.income.length?state.income.map(x=>`<tr><td>${esc(x.name)}</td><td class="num">${money(x.amount)}</td><td class="table-actions"><button class="btn secondary small" data-edit="income" data-id="${esc(x.id)}">Edit</button> <button class="btn danger small" data-delete="income" data-id="${esc(x.id)}">Delete</button></td></tr>`).join(''):`<tr><td colspan="3">No expected income sources yet.</td></tr>`}
+function expenseRows(){const plans=budgetRows(),cats=categoryTotals();return plans.length?plans.map(x=>{const actual=cats.find(z=>z.category===x.category)?.actual||0;return `<tr><td>${esc(x.category)}<div class="smalltext">${esc(x.name||'')}</div></td><td>${esc(x.kind)}</td><td class="num">${money(x.planned)}</td><td class="smalltext">${money(actual)} category total</td><td class="table-actions"><button class="btn secondary small" data-edit="expenses" data-id="${esc(x.id)}">Edit</button> <button class="btn danger small" data-delete="expenses" data-id="${esc(x.id)}">Delete</button></td></tr>`}).join(''):`<tr><td colspan="5">No budget entries for ${esc(viewMonth)}. Add one or copy from an earlier month.</td></tr>`}
+function budget(){
+ const f=figures(),pct=f.income>0?f.essential/f.income*100:0,flexpct=f.income>0?f.flexible/f.income*100:0;
+ const cats=categoryTotals();const max=Math.max(1,...cats.flatMap(c=>[c.planned,c.actual]));const legacy=budgetRows().filter(x=>x.actual>0);
+ const rows=cats.map(c=>{const variance=r2(c.planned-c.actual);return `<tr><td><b>${esc(c.category)}</b></td><td class="num">${money(c.planned)}</td><td class="num">${money(c.actual)}</td><td class="num ${variance<0?'metric-down':'metric-up'}">${variance<0?'−'+money(-variance):money(variance)}</td><td class="catbar"><div class="cash-bar"><span class="fill ${c.actual>c.planned?'over':''}" style="width:${Math.min(100,percent(c.actual,c.planned||c.actual||1))}%"></span></div></td></tr>`}).join('');
+ return head('PLAN VS REAL SPENDING','Monthly Budget','Set a separate budget for each month. Actual amounts come from dated expense-log entries, not estimates.',`<button class="btn" data-add="expenses">+ Budget item</button><button class="btn secondary" data-copy-budget="1">Copy earlier budget</button>`)+`
+ <div class="stats" id="budgetMetrics">${stat('Expected monthly income',money(f.income))}${stat('Monthly expense budget',money(f.planned))}${stat('Logged living expenses',money(f.actual))}${stat('Remaining / over budget',money(f.variance),'Budget minus actual',f.variance<0?'metric-down':'metric-up')}</div>
+ <div class="card"><div class="row between"><h2>${esc(viewMonth)} · Budget vs actual by category</h2><button class="btn secondary small" data-go="expenseLog">Open expense log</button></div><div class="tablebox"><table class="comparison"><thead><tr><th>Category</th><th>Budgeted</th><th>Actual</th><th>Remaining</th><th>Budget use</th></tr></thead><tbody>${rows||'<tr><td colspan="5">No spending or monthly budget recorded yet.</td></tr>'}</tbody></table></div><p class="footnote">Actual amounts are from the expense log for the selected month. Debt Payments are excluded here to prevent double-counting monthly minimum obligations.</p></div>
+ <div class="grid2" style="margin-top:15px"><section class="card"><div class="row between"><h2>Planned income sources</h2><button class="btn small" data-add="income">Add source</button></div><div class="tablebox"><table class="tbl"><thead><tr><th>Source</th><th>Expected per month</th><th>Action</th></tr></thead><tbody>${incomeRows()}</tbody></table></div><p class="footnote">These are recurring income expectations. The Income Log records money received on actual dates.</p></section>
+ <section class="card"><h2>Budget assessment</h2><div id="budgetHints"><div class="barpair"><span>Needs + minimums</span><div class="progress"><span style="width:${Math.min(100,pct)}%"></span></div><b>${fmt(pct)}%</b></div><div class="barpair"><span>Flexible spending</span><div class="progress"><span style="width:${Math.min(100,flexpct)}%"></span></div><b>${fmt(flexpct)}%</b></div>${guidance(f)}</div><div class="divider"></div><div class="field-group"><label class="form-label" for="savingAllocation">Monthly savings set-aside (₱)</label><input type="number" class="field" id="savingAllocation" value="${f.savings}" min="0" step="0.01" inputmode="decimal"><span class="help">Used for planned debt affordability, not deducted from actual cash flow without a recorded transfer.</span></div></section></div>
+ <section class="card" style="margin-top:15px"><div class="row between"><h2>Budget items for ${esc(viewMonth)}</h2><button class="btn small" data-add="expenses">Add budget item</button></div><div class="tablebox"><table class="tbl"><thead><tr><th>Category / description</th><th>Class</th><th>Budgeted</th><th>Category actual</th><th>Actions</th></tr></thead><tbody>${expenseRows()}</tbody></table></div>${legacy.length?`<div class="notebar">Older tracker values include ${money(sum(legacy,'actual'))} in legacy “actual expense” fields. These amounts have no transaction dates and are not counted in monthly log totals. Record them as dated expenses if needed.</div>`:''}<p class="footnote">Budgets belong to individual months. To reuse a plan, select another month and choose Copy earlier budget. Add monthly debt payments in the Expense Log under Debt Payments.</p></section>`;
+}
+function updateBudgetMetrics(){if(page!=='budget')return;const f=figures(),pct=f.income>0?f.essential/f.income*100:0,flexpct=f.income>0?f.flexible/f.income*100:0;const stats=$('#budgetMetrics'),hints=$('#budgetHints');if(stats)stats.innerHTML=stat('Expected monthly income',money(f.income))+stat('Monthly expense budget',money(f.planned))+stat('Logged living expenses',money(f.actual))+stat('Remaining / over budget',money(f.variance),'Budget minus actual',f.variance<0?'metric-down':'metric-up');if(hints)hints.innerHTML=`<div class="barpair"><span>Needs + minimums</span><div class="progress"><span style="width:${Math.min(100,pct)}%"></span></div><b>${fmt(pct)}%</b></div><div class="barpair"><span>Flexible spending</span><div class="progress"><span style="width:${Math.min(100,flexpct)}%"></span></div><b>${fmt(flexpct)}%</b></div><div>${guidance(f)}</div>`}
+function copyEarlierBudget(){const targets=budgetRows();if(targets.length&&!confirm(`Replace ${viewMonth}'s ${targets.length} budget items with an earlier month?`))return;const months=[...new Set(state.expenses.filter(x=>x.month<viewMonth).map(x=>x.month))].sort().reverse();if(!months.length){toast('No earlier month has a budget. Add your first budget item.');return}const copy=budgetRows(months[0]).map(x=>({...x,id:id(),month:viewMonth,actual:0}));state.expenses=state.expenses.filter(x=>x.month!==viewMonth).concat(copy);safeSave();render();toast(`Copied ${copy.length} budget items from ${months[0]}.`)}
+function incomeTransactions(){const logs=forMonth(state.incomeLog).slice().sort((a,b)=>b.date.localeCompare(a.date));return logs.length?logs.map(x=>`<tr><td>${esc(x.date)}</td><td><b>${esc(x.source)}</b><div class="smalltext">${esc(x.note)}</div></td><td class="num">${money(x.amount)}</td><td class="table-actions"><button class="btn secondary small" data-edit="incomeLog" data-id="${esc(x.id)}">Edit</button> <button class="btn danger small" data-delete="incomeLog" data-id="${esc(x.id)}">Delete</button></td></tr>`).join(''):'<tr><td colspan="4">No income received in this month yet.</td></tr>'}
+function expenseTransactions(){const logs=forMonth(state.expenseLog).slice().sort((a,b)=>b.date.localeCompare(a.date));return logs.length?logs.map(x=>`<tr><td>${esc(x.date)}</td><td><b>${esc(x.category)}</b><div class="smalltext">${esc(x.payee||'')}</div></td><td>${esc(x.method)}<div class="smalltext">${esc(x.note)}</div></td><td class="num">${money(x.amount)}</td><td class="table-actions"><button class="btn secondary small" data-edit="expenseLog" data-id="${esc(x.id)}">Edit</button> <button class="btn danger small" data-delete="expenseLog" data-id="${esc(x.id)}">Delete</button></td></tr>`).join(''):'<tr><td colspan="5">No expenses in this month yet.</td></tr>'}
+function incomeLog(){const f=figures(),logs=forMonth(state.incomeLog),sources={};logs.forEach(x=>sources[x.source]=(sources[x.source]||0)+x.amount);const breakdown=Object.entries(sources).sort((a,b)=>b[1]-a[1]);return head('RECEIPTS & CASH INFLOW','Income Dashboard','Record each income receipt with its date, source and amount. View monthly income totals and trends.',`<button class="btn" data-add="incomeLog">+ Record income</button>`)+`<div class="stats">${stat('Income received',money(f.actualIncome),`${logs.length} transactions`)}${stat('Expected monthly income',money(f.income),'From planned income sources')}${stat('Above / below expectation',money(r2(f.actualIncome-f.income)),'Actual minus planned',f.actualIncome-f.income<0?'metric-down':'metric-up')}${stat('Income sources used',String(breakdown.length),'Distinct sources this month')}</div><div class="grid2"><section class="card"><h2>Income over the last six months</h2>${trendChart(true,false)}</section><section class="card"><h2>Income by source</h2>${breakdown.length?`<div class="flat-list">${breakdown.map(([name,amt])=>`<div class="line"><span>${esc(name||'Unspecified')}</span><b>${money(amt)} <span class="smalltext">(${fmt(percent(amt,f.actualIncome))}%)</span></b></div>`).join('')}</div>`:empty('Log income to see the monthly source breakdown.')}</section></div><section class="card" style="margin-top:15px"><div class="row between"><h2>Income entries · ${esc(viewMonth)}</h2><button class="btn small" data-add="incomeLog">Add receipt</button></div><div class="tablebox"><table class="tbl"><thead><tr><th>Date</th><th>Source / note</th><th>Received</th><th>Actions</th></tr></thead><tbody>${incomeTransactions()}</tbody></table></div></section>`}
+function expenseLog(){const f=figures(),logs=forMonth(state.expenseLog),cats=categoryTotals().filter(x=>x.actual>0).sort((a,b)=>b.actual-a.actual),top=cats[0],outlays=loggedExpense(viewMonth,true);return head('OUTFLOWS & CASH SPENDING','Expense Dashboard','Record real expenses by date and category. Review budget use, debt payments and spending history.',`<button class="btn" data-add="expenseLog">+ Record expense</button>`)+`<div class="stats">${stat('Total cash outflows',money(outlays),`${logs.length} entries, including debt payments`)}${stat('Actual living expenses',money(f.actual),'Compared with monthly budget')}${stat('Actual debt payments',money(f.actualDebt),'Recorded separately from living costs')}${stat('Unspent budget / overspend',money(f.variance),'Budget minus living spending',f.variance<0?'metric-down':'metric-up')}</div><div class="grid2"><section class="card"><h2>Expenses over the last six months</h2>${trendChart(false,true)}</section><section class="card"><div class="row between"><h2>Spending by category</h2><button class="btn secondary small" data-go="budget">Compare budget</button></div>${cats.length?`<div class="flat-list">${cats.slice(0,7).map(x=>`<div class="line"><span>${esc(x.category)}</span><b>${money(x.actual)}</b></div>`).join('')}</div>`:empty('No living expense category has activity this month.')}<p class="footnote">${top?'Largest living-expense category: '+esc(top.category)+'. ':' '}Debt payments are reported separately.</p></section></div><section class="card" style="margin-top:15px"><div class="row between"><h2>Expense entries · ${esc(viewMonth)}</h2><button class="btn small" data-add="expenseLog">Add expense</button></div><div class="tablebox"><table class="tbl"><thead><tr><th>Date</th><th>Category / payee</th><th>Paid through / notes</th><th>Paid amount</th><th>Actions</th></tr></thead><tbody>${expenseTransactions()}</tbody></table></div><p class="footnote">Record payments only once. Credit card purchases are expenses on the purchase date if you track spending that way, while card bill repayments should not be entered a second time as spending for the same purchase. Use Debt Payments for separate repayments you wish to track, and interpret cash flow accordingly.</p></section>`}
+function debtRows(live=false){return state.debts.length?state.debts.map(d=>`<tr><td><b>${esc(d.lender)}</b><div class="smalltext">${esc(d.type)}</div></td><td>${live?`<input aria-label="${esc(d.lender)} balance" class="inline-field num" type="number" min="0" step="0.01" data-live="balance" data-id="${esc(d.id)}" value="${d.balance}">`:money(d.balance)}</td><td>${live?`<input aria-label="${esc(d.lender)} APR percent" class="inline-field num" type="number" min="0" max="1000" step="0.01" data-live="apr" data-id="${esc(d.id)}" value="${d.apr}">`:`${fmt(d.apr)}%`}</td><td>${live?`<input aria-label="${esc(d.lender)} minimum payment" class="inline-field num" type="number" min="0" step="0.01" data-live="minimum" data-id="${esc(d.id)}" value="${d.minimum}">`:money(d.minimum)}</td>${live?'':`<td>Day ${d.dueDay}</td><td><button class="btn secondary small" data-edit="debts" data-id="${esc(d.id)}">Edit</button> <button class="btn danger small" data-delete="debts" data-id="${esc(d.id)}">Delete</button></td>`}</tr>`).join(''):`<tr><td colspan="${live?4:6}">No credit accounts or loans added yet.</td></tr>`}
+function debts(){const f=figures();return head('CREDIT ACCOUNTS & LOANS','Credit and Debt Inventory','List every outstanding credit card and loan, including its annual interest rate and monthly minimum payment.',`<button class="btn" data-add="debts">+ Add account</button>`)+`<div class="stats">${stat('Total outstanding balance',money(f.debt))}${stat('Minimum payments per month',money(f.minimums))}${stat('Active debts',String(state.debts.filter(d=>d.balance>0).length))}${stat('Funds after living costs & savings',money(f.afterPlan),'Available before debt payments')}</div><section class="card"><div class="row between"><h2>All credit and loan accounts</h2><button class="btn small" data-add="debts">Add account</button></div><div class="tablebox"><table class="tbl"><thead><tr><th>Lender / account</th><th>Balance</th><th>Interest APR</th><th>Minimum / month</th><th>Due each month</th><th>Actions</th></tr></thead><tbody>${debtRows()}</tbody></table></div><div class="notebar">Use the annual percentage rate (APR) if known. Enter 0% only if the agreement truly charges no interest. Variable interest, penalties, fees and promotional terms are not modeled.</div></section>`}
+// Payment model: monthly APR/12 interest, minimums first, then remaining funds to ranked balances.
+// Calculations round each month's interest and payment to cents and stop after 600 months.
+function simulate(method,payment){const debts=state.debts.filter(d=>d.balance>0.005).map(d=>({...d,balance:r2(d.balance)})),byId={};for(const d of debts)byId[d.id]=null;
+ if(!debts.length)return {ok:true,months:0,interest:0,totalPaid:0,order:[],payoff:byId,history:[]};
+ const initialMin=debts.reduce((s,d)=>s+Math.min(d.minimum,r2(d.balance+r2(d.balance*d.apr/1200))),0);
+ if(payment<r2(initialMin)-.005)return {ok:false,reason:`Monthly payment is below the ${money(initialMin)} required starting minimums.`,order:rank(debts,method),months:null};
+ let interest=0,totalPaid=0,history=[],month=0;
+ for(month=1;month<=600;month++){
+  const live=debts.filter(d=>d.balance>.005);if(!live.length)break;
+  for(const d of live){const charge=r2(d.balance*d.apr/1200);d.balance=r2(d.balance+charge);interest=r2(interest+charge)}
+  let available=r2(payment),paidThisMonth=0;
+  for(const d of live){const due=Math.min(d.balance,d.minimum);const paid=r2(Math.min(available,due));d.balance=r2(d.balance-paid);available=r2(available-paid);paidThisMonth=r2(paidThisMonth+paid)}
+  const ordered=rank(debts.filter(d=>d.balance>.005),method);
+  for(const d of ordered){if(available<=.005)break;const paid=r2(Math.min(available,d.balance));d.balance=r2(Math.max(0,d.balance-paid));available=r2(Math.max(0,available-paid));paidThisMonth=r2(paidThisMonth+paid)}
+  for(const d of debts)if(d.balance<=.005&&byId[d.id]===null){d.balance=0;byId[d.id]=month}
+  totalPaid=r2(totalPaid+paidThisMonth);history.push({month,remaining:r2(debts.reduce((s,d)=>s+d.balance,0)),paid:paidThisMonth});
+  if(debts.every(d=>d.balance<=.005))return {ok:true,months:month,interest,totalPaid,order:rank(state.debts.filter(d=>d.balance>0),method),payoff:byId,history};
+  if(paidThisMonth<=interest+0.005&&month>=24&&history[month-1].remaining>=history[month-13].remaining)break;
+ }
+ return {ok:false,reason:'No full payoff in the 600-month calculation limit. Increase the payment or check rates and minimums.',months:null,interest,totalPaid,order:rank(state.debts.filter(d=>d.balance>0),method),payoff:byId,history};
+}
+function rank(arr,method){return arr.slice().sort((a,b)=>method==='avalanche'?(b.apr-a.apr||a.balance-b.balance||a.lender.localeCompare(b.lender)):(a.balance-b.balance||b.apr-a.apr||a.lender.localeCompare(b.lender)))}
+function resultCard(name,result,gold=false){const subtitle=name==='Avalanche'?'Highest interest rate first':'Smallest balance first';return `<div class="card strategy-card ${gold?'gold':''}"><div class="row between"><h2>${name}</h2><span class="b ${gold?'warn':'good'}">${esc(subtitle)}</span></div><div class="grid2"><div><div class="smalltext">Estimated payoff time</div><div class="strategy-metric num">${result.ok?`${result.months} months`:'Not reached'}</div></div><div><div class="smalltext">Estimated interest</div><div class="strategy-metric num">${result.ok?money(result.interest):'Unavailable'}</div></div></div>${result.ok?`<p>Estimated total paid: <b>${money(result.totalPaid)}</b></p>`:`<div class="notebar">${esc(result.reason)}</div>`}<div class="divider"></div><h3>Repayment priority</h3>${result.order.length?`<ol class="mini-list" style="padding-left:23px;list-style:decimal">${result.order.map(d=>`<li><div class="row between"><span>${esc(d.lender)} <span class="smalltext">(${fmt(d.apr)}% APR, ${money(d.balance)})</span></span><b>${result.ok&&result.payoff[d.id]!=null?`Month ${result.payoff[d.id]}`:'Priority'}</b></div></li>`).join('')}</ol>`:empty('Add an active debt to calculate repayment order.')}</div>`}
+function strategy(){const f=figures(),amount=paymentCapacity(f);return head('DEBT REPAYMENT PLANNING','Loan Payment Strategy','Compare interest-first and smallest-balance-first repayment plans. Edit the debt numbers below to recalculate the estimates immediately.',`<button class="btn secondary" data-go="debts">Manage debt records</button>`)+`<section class="card"><h2>Monthly payment settings</h2><div class="row"><div class="segmented" role="group" aria-label="Payment mode"><button type="button" data-mode="auto" class="${state.settings.paymentMode==='auto'?'active':''}">Budget-based</button><button type="button" data-mode="manual" class="${state.settings.paymentMode==='manual'?'active':''}">Custom amount</button></div><div class="field-group" style="flex:1;max-width:245px"><label class="form-label" for="strategyAmount">Monthly debt payment (₱)</label><input type="number" min="0" step="0.01" class="field" id="strategyAmount" value="${r2(amount)}" ${state.settings.paymentMode==='auto'?'readonly aria-readonly="true"':''}></div><div class="field-group" style="flex:1;max-width:225px"><label class="form-label" for="strategySavings">Monthly savings set-aside (₱)</label><input type="number" min="0" step="0.01" class="field" id="strategySavings" value="${f.savings}"></div></div><p class="footnote">Budget-based uses income minus planned living expenses and savings set-aside. Custom uses your payment entry, even if the budget does not support it.</p><div id="strategyWarning" aria-live="polite"></div></section><section class="card" style="margin-top:15px"><div class="row between"><h2>Live debt scenario inputs</h2><span class="smalltext">Changes here save to your inventory</span></div><div class="tablebox"><table class="tbl"><thead><tr><th>Lender / type</th><th>Balance (₱)</th><th>APR (%)</th><th>Minimum (₱)</th></tr></thead><tbody>${debtRows(true)}</tbody></table></div></section><div class="grid2" style="margin-top:15px" id="results" aria-live="polite"></div><div class="notebar">These simplified estimates use fixed annual rates divided by 12, monthly compounding and one monthly payment pool. The model allocates minimums first, then extra payments to the selected priority. It excludes lender fees, penalties, daily interest, payment due-date timing and new borrowing. Check your lender statements before making payment decisions.</div>`}
+function renderStrategyResults(){if(page!=='strategy')return;const f=figures(),amount=paymentCapacity(f),input=$('#strategyAmount');if(state.settings.paymentMode==='auto'&&input)input.value=r2(amount);let warnings=[];if(amount<f.minimums-.005)warnings.push(`The selected ${money(amount)} monthly payment is below listed minimums of ${money(f.minimums)}.`);if(amount>f.afterPlan+.005)warnings.push(`This payment exceeds the ${money(Math.max(0,f.afterPlan))} budget-based debt capacity. It would leave a monthly shortfall of ${money(amount-f.afterPlan)}.`);if(!state.debts.some(d=>d.balance>0))warnings.push('Add at least one outstanding debt to calculate repayment time.');$('#strategyWarning').innerHTML=warnings.length?`<div class="notebar">${warnings.map(esc).join(' ')}</div>`:'<div class="tip">The modeled monthly payment fits the entered budget and listed minimums.</div>';const a=simulate('avalanche',amount),s=simulate('snowball',amount);$('#results').innerHTML=resultCard('Avalanche',a)+resultCard('Snowball',s,true)+(a.ok&&s.ok&&a.months>0?`<div class="card" style="grid-column:1/-1"><h3>Comparison</h3><p>Avalanche interest: <b>${money(a.interest)}</b>. Snowball interest: <b>${money(s.interest)}</b>. Difference: <b>${money(Math.abs(s.interest-a.interest))}</b>. ${s.interest>=a.interest?'Avalanche saves the indicated interest in this model.':'Snowball has lower modeled interest for these inputs.'}</p><p class="smalltext">Avalanche payoff: ${a.months} months. Snowball payoff: ${s.months} months.</p></div>`:'')}
+function savings(){const totals={target:sum(state.goals,'target'),saved:sum(state.goals,'saved')};return head('FUTURE PLANNING','Savings Goals','Track emergency funds, planned purchases and other targets.',`<button class="btn" data-add="goals">+ Add goal</button>`)+`<div class="stats">${stat('Total savings target',money(totals.target))}${stat('Amount saved toward goals',money(totals.saved))}${stat('Still to save',money(Math.max(0,totals.target-totals.saved)))}${stat('Active savings goals',String(state.goals.length))}</div><div class="grid3">${state.goals.map(g=>{const p=g.target>0?g.saved/g.target*100:0;return `<section class="card goal-card"><div class="row between"><h2>${esc(g.name)}</h2><span class="b ${p>=100?'good':'blue'}">${p>=100?'Funded':'In progress'}</span></div><p>${money(g.saved)} of ${money(g.target)}</p><div class="progress"><span style="width:${Math.min(100,p)}%"></span></div><p class="smalltext">${fmt(p)}% of goal${g.deadline?' · Target: '+esc(g.deadline):''}</p><div class="row"><button class="btn secondary small" data-edit="goals" data-id="${esc(g.id)}">Edit</button><button class="btn danger small" data-delete="goals" data-id="${esc(g.id)}">Delete</button></div></section>`}).join('')||empty('No savings goals yet. Add one to begin tracking progress.')}</div>`}
+function summary(){
+ const f=figures(),snapshots=state.snapshots.slice().sort((a,b)=>b.month.localeCompare(a.month)),months=seriesMonths();
+ return head('MONTH-END REVIEW','Monthly Summary','Review actual income, expenses, repayments and net logged cash flow. Historical months remain available through their dated entries.',`<button class="btn" id="snapshotOpen">Save month snapshot</button>`)+`
+ <div class="stats">${stat('Income actually received',money(f.actualIncome),`${forMonth(state.incomeLog).length} receipts`)}${stat('Living expenses paid',money(f.actual),`${forMonth(state.expenseLog).filter(x=>x.category!=='Debt Payments').length} entries`)}${stat('Logged debt repayments',money(f.actualDebt),'Debt Payments expense entries')}${stat('Net logged cash flow',money(f.cashNet),'Before any unlogged payments or transfers',f.cashNet<0?'metric-down':'metric-up')}</div>
+ <div class="grid2"><section class="card"><h2>Monthly income vs outflows</h2>${trendChart(true,true)}</section><section class="card"><h2>Budget-to-actual summary</h2><div class="flat-list"><div class="line"><span>Monthly living expense budget</span><b>${money(f.planned)}</b></div><div class="line"><span>Actual living expenses</span><b>${money(f.actual)}</b></div><div class="line"><span>Remaining / overspent budget</span><b class="${f.variance<0?'negative-note':'positive-note'}">${money(f.variance)}</b></div><div class="line"><span>Monthly expected income</span><b>${money(f.income)}</b></div><div class="line"><span>Monthly actual income</span><b>${money(f.actualIncome)}</b></div><div class="line"><span>Debt minimums (planned only)</span><b>${money(f.minimums)}</b></div></div></section></div>
+ <section class="card" style="margin-top:15px"><h2>Actual monthly activity</h2><div class="tablebox"><table class="tbl"><thead><tr><th>Month</th><th>Actual income</th><th>Living expenses</th><th>Debt paid</th><th>Total outflows</th><th>Net logged cash flow</th></tr></thead><tbody>${months.slice().reverse().map(m=>{const inc=loggedIncome(m),living=loggedExpense(m),repay=debtPaid(m),cash=r2(inc-living-repay);return `<tr><td>${esc(m)}</td><td>${money(inc)}</td><td>${money(living)}</td><td>${money(repay)}</td><td>${money(living+repay)}</td><td class="${cash<0?'metric-down':'metric-up'}">${money(cash)}</td></tr>`}).join('')}</tbody></table></div><p class="footnote">Cash flow only accounts for income and outflows you explicitly log. It is not a verified bank balance. Transfers between your own accounts should not be recorded as new income or spending.</p></section>
+ <section class="card" style="margin-top:15px"><div class="row between"><h2>Saved month-end snapshots</h2><span class="smalltext">${snapshots.length} snapshots</span></div><div class="tablebox"><table class="tbl"><thead><tr><th>Month</th><th>Income received</th><th>Living budget</th><th>Living spent</th><th>Listed minimums</th><th>Notes</th><th>Actions</th></tr></thead><tbody>${snapshots.length?snapshots.map(x=>`<tr><td>${esc(x.month)}</td><td>${money(x.income)}</td><td>${money(x.planned)}</td><td>${money(x.spent)}</td><td>${money(x.minimums)}</td><td>${esc(x.note)}</td><td><button class="btn danger small" data-delete="snapshots" data-id="${esc(x.id)}">Delete</button></td></tr>`).join(''):'<tr><td colspan="7">No snapshots saved. Historical logs and budgets still remain available.</td></tr>'}</tbody></table></div><p class="footnote">Snapshots freeze figures for reference. Dated income and expense logs continue to update monthly dashboards as you edit transactions.</p></section>`;
+}
+function settings(){
+ const legacy=window.financeCloud?.legacyRecordsAvailable?.();
+ return head('ACCOUNT AND BACKUP','Backup & Settings','Manage your cloud account, import old records and download JSON backups.')+`
+ <div class="grid2">
+  <section class="card"><h2>Account & cloud synchronization</h2><p>Signed in as <span class="cloud-account">${esc(window.financeCloud?.email||'')}</span>.</p>
+   <p>Income, expenses, budgets, debt records, settings and savings synchronize with your signed-in Firebase account. Each record is stored separately.</p><div class="row"><span class="b good">Cloud account</span><button class="btn secondary" id="retrySyncButton">Retry sync</button><button class="btn secondary" id="signoutSettings">Sign out</button></div>
+   <p class="footnote">Cloud records are not end-to-end encrypted. Firestore offline data remains readable to someone with access to local browser storage.</p></section>
+  <section class="card"><h2>JSON backups</h2><p>Download a portable copy of all financial records or restore an earlier backup. Keep backups private.</p><div class="row"><button class="btn" id="exportButton">Export JSON backup</button><button class="btn secondary" id="importButton">Import JSON backup</button></div><div class="notebar">Import REPLACES the data for this signed-in cloud account and synchronizes the changes to other devices.</div></section>
+  <section class="card"><h2>Password & sign-in</h2><p>Your password is managed by Firebase Authentication, not stored in this HTML file.</p><button class="btn secondary" id="passwordButton">Send password reset email</button><p class="footnote">Resetting your password requires access to your account email.</p></section>
+  <section class="card"><h2>Previous browser records</h2><p>Older local-only tracker records stay separate from the signed-in account until you choose to upload them.</p>
+   ${legacy?'<button class="btn secondary" id="importLegacyButton">Upload previous local records to cloud</button>':'<p class="b">No previous local records found in this browser</p>'}
+   <p class="footnote">Make a JSON backup before moving or replacing any data.</p></section>
+  <section class="card"><h2>Erase cloud records</h2><p>Delete all finance records for this signed-in account, including data on other devices. Keep a backup first.</p><button class="btn danger" id="resetButton">Erase all cloud finance data</button></section>
+  <section class="card"><h2>Calculation notes</h2><p>Monthly budget targets are independent for each month. Living expense actuals come from the dated expense log and exclude Debt Payments. Cash flow deducts logged debt payments.</p><p>Expected income sources and debt minimums are planning inputs. Repayment strategies are estimates assuming steady rates, balances and monthly payments.</p></section>
+ </div>`;
+}
+function render(){if(!authenticated)return;let html={dashboard,budget,incomeLog,expenseLog,debts,strategy,savings,summary,settings}[page]();$('#main').innerHTML='<div class="page">'+(window.financeCloud?.needsMigration?'<div class="migration-banner"><div><b>Existing local records found</b><p>Your older tracker data has not been uploaded. Import it explicitly to this account, or keep it separate.</p></div><button class="btn" id="importLegacyButton">Upload old records</button></div>':'')+html+'</div>';if(page==='strategy')renderStrategyResults()}
+const field=(label,name,type='text',value='',other='')=>`<div class="field-group"><label class="form-label" for="m_${name}">${esc(label)}</label><input class="field" id="m_${name}" name="${name}" type="${type}" value="${esc(value)}" ${other}></div>`;
+const selectField=(label,name,options,value)=>`<div class="field-group"><label class="form-label" for="m_${name}">${esc(label)}</label><select class="field" id="m_${name}" name="${name}">${options.map(o=>`<option value="${esc(o)}" ${o===value?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`;
+function modalOpen(title,html){dismissMobileSheets();oldFocus=document.activeElement;$('#modal').innerHTML=`<button class="close" aria-label="Close dialog" type="button" data-close="1">×</button><h2 id="modalTitle">${esc(title)}</h2>${html}`;$('#overlay').classList.add('show');$('#overlay').setAttribute('aria-hidden','false');setTimeout(()=>( $('#modal').querySelector('input,select,textarea') || $('#modal').querySelector('button') )?.focus(),10)}
+function modalClose(){$('#overlay').classList.remove('show');$('#overlay').setAttribute('aria-hidden','true');$('#modal').innerHTML='';oldFocus?.focus?.()}
+function editRecord(collection,recordId){
+ const old=state[collection]?.find(x=>x.id===recordId),edit=!!old;
+ const models={income:'Expected income source',expenses:'Monthly budget item',incomeLog:'Income receipt',expenseLog:'Expense transaction',debts:'Debt account',goals:'Savings goal'};
+ if(!models[collection])return;
+ let html='';const amt='min="0" max="1000000000000" step="0.01" inputmode="decimal" required';
+ const now=new Date(),localDate=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');const defaultDate=viewMonth===currentMonth()?localDate:viewMonth+'-01';
+ if(collection==='income')html=field('Expected income source','name','text',old?.name||'','maxlength="120" required')+field('Expected amount each month (₱)','amount','number',old?.amount??0,amt);
+ if(collection==='expenses')html=field('Budget month','month','month',old?.month||viewMonth,'required')+selectField('Expense category','category',CATEGORIES,old?.category||'Food & Groceries')+selectField('Classification','kind',['Essential','Flexible'],old?.kind||'Essential')+field('Budget description','name','text',old?.name||'','maxlength="120"')+field('Budgeted amount (₱)','planned','number',old?.planned??0,amt);
+ if(collection==='incomeLog')html=field('Date received','date','date',old?.date||defaultDate,'required')+field('Income source (e.g. salary, side work)','source','text',old?.source||'','maxlength="120" required')+field('Amount received (₱)','amount','number',old?.amount??0,amt)+field('Note (optional)','note','text',old?.note||'','maxlength="240"');
+ if(collection==='expenseLog')html=field('Date paid','date','date',old?.date||defaultDate,'required')+selectField('Expense category','category',EXPENSE_CATEGORIES,old?.category||'Food & Groceries')+field('Payee / description','payee','text',old?.payee||'','maxlength="120" required')+selectField('Payment method','method',PAY_METHODS,old?.method||'Cash')+field('Amount paid (₱)','amount','number',old?.amount??0,amt)+field('Note (optional)','note','text',old?.note||'','maxlength="240"');
+ if(collection==='debts')html=field('Lender / account name','lender','text',old?.lender||'','maxlength="120" required')+selectField('Credit or loan type','type',TYPES,old?.type||'Credit Card')+field('Outstanding balance (₱)','balance','number',old?.balance??0,amt)+field('Annual interest rate, APR (%)','apr','number',old?.apr??0,'min="0" max="1000" step="0.01" required')+field('Minimum monthly payment (₱)','minimum','number',old?.minimum??0,amt)+field('Payment due day (1–31)','dueDay','number',old?.dueDay||1,'min="1" max="31" step="1" required');
+ if(collection==='goals')html=field('Savings goal','name','text',old?.name||'','maxlength="120" required')+field('Target amount (₱)','target','number',old?.target??0,amt)+field('Amount already saved (₱)','saved','number',old?.saved??0,amt)+field('Target date (optional)','deadline','date',old?.deadline||'','');
+ modalOpen((edit?'Edit ':'Add ')+models[collection],`<p>Enter the details below. Income and expense logs use transaction dates for monthly totals.</p><form id="recordForm" data-kind="${collection}" data-id="${esc(recordId||'')}"><div class="modal-fields">${html}</div><div class="divider"></div><div class="row"><button class="btn" type="submit">Save record</button><button class="btn secondary" type="button" data-close="1">Cancel</button></div><div id="formError" role="alert"></div></form>`)
+}
+function recordSubmit(form){
+ const collection=form.dataset.kind,recordId=form.dataset.id,fd=new FormData(form),v=n=>fd.get(n),old=state[collection]?.find(x=>x.id===recordId);
+ let record={id:recordId||id()};
+ try{
+ if(collection==='income')record={...record,name:text(v('name')),amount:cleanMoney(v('amount'))};
+ else if(collection==='expenses')record={...record,month:text(v('month'),7),category:v('category'),kind:v('kind'),name:text(v('name')),planned:cleanMoney(v('planned')),actual:old?.actual||0};
+ else if(collection==='incomeLog')record={...record,date:text(v('date'),10),source:text(v('source')),amount:cleanMoney(v('amount')),note:text(v('note'),240)};
+ else if(collection==='expenseLog')record={...record,date:text(v('date'),10),category:v('category'),payee:text(v('payee')),method:v('method'),amount:cleanMoney(v('amount')),note:text(v('note'),240)};
+ else if(collection==='debts')record={...record,lender:text(v('lender')),type:v('type'),balance:cleanMoney(v('balance')),apr:Math.min(1000,positive(v('apr'))),minimum:cleanMoney(v('minimum')),dueDay:Math.max(1,Math.min(31,Number(v('dueDay'))))};
+ else if(collection==='goals')record={...record,name:text(v('name')),target:cleanMoney(v('target')),saved:cleanMoney(v('saved')),deadline:text(v('deadline'),10)};
+ else throw Error('Unknown record type.');
+ if(['income','goals'].includes(collection)&&!record.name||collection==='debts'&&!record.lender||collection==='incomeLog'&&!record.source||collection==='expenseLog'&&!record.payee)throw Error('Enter the required name or description.');
+ if(['incomeLog','expenseLog'].includes(collection)&&record.amount<=0)throw Error('Transaction amount must be greater than zero.');
+ if(collection==='expenses'&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(record.month))throw Error('Choose a valid budget month.');
+ if(['incomeLog','expenseLog'].includes(collection)){const d=new Date(record.date+'T12:00:00');if(!/^\d{4}-\d{2}-\d{2}$/.test(record.date)||isNaN(d)||d.toISOString().slice(0,10)!==record.date)throw Error('Choose a valid transaction date.');}
+ if(Object.values(record).some(x=>typeof x==='number'&&!Number.isFinite(x)))throw Error('Check the numeric amounts.');
+ if(recordId){const i=state[collection].findIndex(x=>x.id===recordId);if(i<0)throw Error('Record no longer exists.');state[collection][i]=record}else state[collection].push(record);
+ if(['incomeLog','expenseLog'].includes(collection))viewMonth=record.date.slice(0,7);
+ if(collection==='expenses')viewMonth=record.month;
+ if(!safeSave())throw Error('The record is not stored on this device. Export a backup and check your browser storage.');modalClose();render();toast('Record saved.');
+ }catch(e){const el=$('#formError');if(el)el.innerHTML='<div class="message bad">'+esc(e.message)+'</div>'}
+}
+function removeRecord(kind,recordId){const rec=state[kind]?.find(x=>x.id===recordId);if(!rec)return;if(!confirm('Delete this record? This action cannot be undone.'))return;state[kind]=state[kind].filter(x=>x.id!==recordId);safeSave();render();toast('Record deleted.')}
+function saveSnapshotModal(){modalOpen('Save monthly summary',`<p>Freeze current reported figures for a selected month. Saving the same month again replaces its previous snapshot.</p><form id="snapshotForm"><div class="modal-fields">${field('Month','month','month',viewMonth,'required')}<div class="field-group wide"><label for="snapshotNote" class="form-label">Optional notes</label><textarea id="snapshotNote" class="field" rows="3" maxlength="300" placeholder="e.g., higher food costs this month"></textarea></div></div><div class="divider"></div><button type="submit" class="btn">Save snapshot</button></form>`)}
+function exportBackup(){const payload={app:'Personal Financial Tracker',format:1,exportedAt:new Date().toISOString(),data:state};if(window.AndroidBackup&&typeof window.AndroidBackup.saveJSON==='function'){window.AndroidBackup.saveJSON(JSON.stringify(payload,null,2),`personal-finances-${currentMonth()}.json`);toast('Choose where to save your JSON backup on this device.');return;}const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`personal-finances-${currentMonth()}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('JSON backup exported. Store the file privately.')}
+function importDialog(){modalOpen('Import JSON backup',`<p>Choose a JSON file previously exported from this tracker. Import replaces all financial records in the signed-in cloud account.</p><form id="importForm"><div class="mini-upload"><label class="form-label" for="backupFile">Choose backup file (.json)</label><input id="backupFile" type="file" accept=".json,application/json" required><div class="help">The backup is read in your browser. Its records are then synchronized to your Firebase Firestore database.</div></div><div id="importError" role="alert"></div><div class="row" style="margin-top:16px"><button class="btn" type="submit">Review and import</button><button class="btn secondary" type="button" data-close="1">Cancel</button></div></form>`)}
+async function doImport(){const file=$('#backupFile')?.files[0];if(!file)return;if(file.size>5*1024*1024){$('#importError').innerHTML='<div class="message bad">Backup file must be under 5 MB.</div>';return}try{const raw=JSON.parse(await file.text());if(raw.app!=='Personal Financial Tracker'||raw.format!==1)throw Error('This file is not a tracker JSON backup.');const next=validateData(raw.data);if(!confirm('Replace ALL current records in your CLOUD ACCOUNT with the imported backup? Changes will sync to other devices.'))return;state=next;safeSave();modalClose();render();toast('Backup import queued for cloud synchronization.')}catch(e){$('#importError').innerHTML='<div class="message bad">'+esc(e.message)+'</div>'}}
+async function passwordDialog(){
+ const email=window.financeCloud?.email||$('#gateEmail').value.trim();
+ if(!email){toast('Enter your account email address first.');return}
+ if(!confirm('Send a password reset email to '+email+'?'))return;
+ try{await window.financeCloud.resetPassword(email);toast('If this account exists, check the email for a reset link.')}catch(err){toast(window.financeCloud?.friendlyError(err)||'Password reset could not be sent.')}
+}
+function resetData(){
+ if(!confirm('Erase ALL financial records from this CLOUD ACCOUNT? Other devices will also lose these records. Export a backup first.'))return;
+ if(!confirm('FINAL CONFIRMATION: Delete every income, expense, budget, loan, goal and saved summary in your cloud account?'))return;
+ state=emptyData();safeSave();render();toast('Cloud deletion queued. This will affect all signed-in devices.');
+}
+function previousLocalData(){
+ try{const raw=JSON.parse(getStore(DATA_KEY)||'null');return validateData(raw)}catch{return null}
+}
+function importPreviousLocal(){
+ const previous=previousLocalData();if(!previous){toast('No readable previous local tracker records were found.');return}
+ if(!confirm('Upload your OLD local browser records to the signed-in Firebase account? This will REPLACE current cloud records. Export a JSON backup first.'))return;
+ if(!confirm('Confirm replacing all cloud records with the older local tracker records.'))return;
+ state=previous;safeSave();window.financeCloud.needsMigration=false;render();toast('Old records queued for cloud synchronization.');
+}
+// Read-only UI hooks used by Firebase. Never expose Firebase admin keys in the frontend.
+window.financeTracker={
+ takeSnapshot:()=>JSON.parse(JSON.stringify(state)),
+ applyCloudSnapshot:(cloudData)=>{state=validateData(cloudData);if(authenticated)render()},
+ enterCloud:(email)=>{authenticated=true;$('#signin').classList.add('hidden');$('#app').classList.remove('hidden');$('#accountAvatar').textContent=(email||'ME').slice(0,2).toUpperCase();page='dashboard';drawNav();render()},
+ leaveCloud:(reason='')=>{modalClose();showGate(reason)},
+ setCloudStatus:(message,kind='')=>{const el=$('#cloudStatus');if(!el)return;el.textContent=message;el.className='cloud-status'+(kind?' '+kind:'')},
+ previousLocalData,
+ toast
+};
+// Event delegation keeps record forms and navigation usable after every render.
+document.addEventListener('click',e=>{
+ const el=e.target.closest('button');if(!el)return;
+ if(el.id==='mobileMoreButton'){toggleMobileSheet('mobileMore');return}
+ if(el.id==='mobileAddButton'){toggleMobileSheet('mobileQuick');return}
+ if(el.id==='installAppButton'){if(deferredInstallPrompt){deferredInstallPrompt.prompt();deferredInstallPrompt=null;el.classList.add('hidden')}return}
+ if(el.dataset.page){navigate(el.dataset.page);return}
+ if(el.dataset.go){navigate(el.dataset.go);return}
+ if(el.dataset.copyBudget){copyEarlierBudget();return}
+ if(el.dataset.add){editRecord(el.dataset.add,'');return}
+ if(el.dataset.edit){editRecord(el.dataset.edit,el.dataset.id);return}
+ if(el.dataset.delete){removeRecord(el.dataset.delete,el.dataset.id);return}
+ if(el.dataset.close){modalClose();return}
+ if(el.dataset.lock||el.id==='signout'||el.id==='signoutSettings'){modalClose();window.financeCloud?.signOut();return}
+ if(el.dataset.mode){state.settings.paymentMode=el.dataset.mode;if(el.dataset.mode==='manual'&&state.settings.manualPayment<=0)state.settings.manualPayment=Math.max(0,figures().afterPlan);safeSave();render();return}
+ if(el.id==='snapshotOpen'){saveSnapshotModal();return}
+ if(el.id==='exportButton'){exportBackup();return}
+ if(el.id==='importButton'){importDialog();return}
+ if(el.id==='passwordButton'){passwordDialog();return}
+  if(el.id==='importLegacyButton'){importPreviousLocal();return}
+  if(el.id==='forgotPasswordButton'){const email=$('#gateEmail').value.trim();if(!email){$('#gateMessage').innerHTML='<div class="message bad">Enter your email address first.</div>';return;}window.financeCloud?.resetPassword(email).then(()=>{$('#gateMessage').innerHTML='<div class="message good">If an account exists, check your email for a reset link.</div>'}).catch(e=>{$('#gateMessage').innerHTML='<div class="message bad">'+esc(window.financeCloud?.friendlyError(e)||e.message)+'</div>'});return}
+ if(el.id==='resetButton'){resetData();return}
+  if(el.id==='retrySyncButton'){window.financeCloud?.retrySync?.();return}
+});
+document.addEventListener('input',e=>{const el=e.target;if(!authenticated||!el)return;if(el.dataset.live){const rec=state.debts.find(d=>d.id===el.dataset.id);if(!rec)return;const key=el.dataset.live;if(el.value.trim()==='')return;let val=positive(el.value);if(key==='apr')val=Math.min(1000,val);else val=cleanMoney(val);rec[key]=val;safeSave();renderStrategyResults();return}if(el.id==='strategyAmount'&&state.settings.paymentMode==='manual'){state.settings.manualPayment=cleanMoney(el.value);safeSave();renderStrategyResults();return}if(el.id==='strategySavings'||el.id==='savingAllocation'){state.settings.monthlySavings=cleanMoney(el.value);safeSave();if(page==='strategy')renderStrategyResults();else updateBudgetMetrics();return}});
+
+document.addEventListener('change',e=>{if(!authenticated||e.target.id!=='viewMonth')return;const value=e.target.value;if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(value))return;viewMonth=value;render();});
+document.addEventListener('submit',e=>{const form=e.target;if(!form?.id)return;e.preventDefault();if(form.id==='gateForm'){gateSubmit(e);return}if(form.id==='recordForm'){recordSubmit(form);return}if(form.id==='importForm'){doImport();return}if(form.id==='passwordForm'){passwordSubmit(form);return}if(form.id==='snapshotForm'){const month=String(new FormData(form).get('month')||''),note=text($('#snapshotNote').value,300);if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return;const f=figures(month);const rec={id:id(),month,income:f.actualIncome,planned:f.planned,spent:f.actual,minimums:f.minimums,savings:f.savings,note};state.snapshots=state.snapshots.filter(x=>x.month!==month);state.snapshots.push(rec);safeSave();modalClose();render();toast('Monthly snapshot saved.')}});
+$('#mobileShade').addEventListener('click',dismissMobileSheets);
+$('#overlay').addEventListener('click',e=>{if(e.target===$('#overlay'))modalClose()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#overlay').classList.contains('show'))modalClose();else dismissMobileSheets()}});
+showGate();
+if('serviceWorker' in navigator && !window.AndroidBackup && (location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1')){
+ window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
+}
+</script>
+
+<script type="module">
+/* Firebase modular Web SDK. Module version pinned to a documented Firebase release. */
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js';
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,sendPasswordResetEmail,signOut as firebaseSignOut} from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js';
+import {initializeFirestore,collection,doc,onSnapshot,setDoc,deleteDoc,serverTimestamp,persistentLocalCache} from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-firestore.js';
+
+const financeApp=window.financeTracker;
+const types=['income','expenses','incomeLog','expenseLog','debts','goals','snapshots'];
+const config=window.FINANCE_FIREBASE_CONFIG || {};
+const configured=['apiKey','authDomain','projectId','appId'].every(k=>config[k]&&typeof config[k]==='string'&&!config[k].includes('REPLACE_'));
+const bridge={configured,ready:false,email:'',needsMigration:false,queueChanges:()=>{},
+ friendlyError(err){
+  const code=String(err?.code||'');
+  if(code.includes('invalid-credential')||code.includes('wrong-password')||code.includes('user-not-found'))return 'Sign-in failed. Check your email address and account password.';
+  if(code.includes('too-many-requests'))return 'Too many attempts. Wait before trying again.';
+  if(code.includes('network-request-failed')||code.includes('unavailable'))return 'Connection unavailable. Check your internet and try again.';
+  if(code.includes('permission-denied'))return 'Cloud access denied. Check your Firestore rules and Firebase account.';
+  if(code.includes('unauthorized-domain'))return 'This GitHub Pages domain is not authorized for Firebase Authentication.';
+  if(code.includes('invalid-email'))return 'Enter a valid email address.';
+  return String(err?.message || 'Unable to reach your cloud account.');
+ },
+ legacyRecordsAvailable(){const old=financeApp.previousLocalData();return !!old&&types.some(t=>old[t]?.length>0)},
+};
+window.financeCloud=bridge;
+if(!configured){
+ financeApp.leaveCloud('Cloud sync is not configured. Enter your Firebase web settings in firebase-config.js, then deploy.');
+}else{
+ const firebaseApp=initializeApp(config);
+ const auth=getAuth(firebaseApp);
+ // IndexedDB persistent cache supports offline data after a successful first sign-in.
+ const db=initializeFirestore(firebaseApp,{localCache:persistentLocalCache({})});
+ const stateKey=(type,item)=>type+'__'+String(item.id);
+ const docKey=(type,item)=>type==='settings'?'_settings':stateKey(type,item);
+ const clone=x=>JSON.parse(JSON.stringify(x));
+ const blank=()=>({schemaVersion:2,income:[],expenses:[],incomeLog:[],expenseLog:[],debts:[],goals:[],snapshots:[],settings:{monthlySavings:0,paymentMode:'auto',manualPayment:0}});
+ const mapFromState=s=>{
+  const map=new Map();
+  for(const type of types)for(const item of s[type]||[])map.set(docKey(type,item),{type,payload:clone(item)});
+  // Keep settings even when empty so a freshly-created account has an explicit record.
+  map.set('_settings',{type:'settings',payload:clone(s.settings||blank().settings)});
+  return map;
+ };
+ const stateFromMap=map=>{
+  const result=blank();
+  for(const entry of map.values()){
+   if(!entry || !entry.type || !entry.payload)continue;
+   if(entry.type==='settings'){result.settings=clone(entry.payload);continue}
+   if(types.includes(entry.type)&&Array.isArray(result[entry.type]))result[entry.type].push(clone(entry.payload));
+  }
+  return result;
+ };
+ const hasRecords=map=>Array.from(map.values()).some(v=>types.includes(v.type));
+ let uid='', unsub=null, mapShadow=new Map(), pending=new Map(), flushTimer=null, timerToken=0, currentMap=new Map(), serverConfirmed=false, unlockDone=false, sessionNo=0;
+ const updateStatus=(status,kind)=>financeApp.setCloudStatus(status,kind);
+ const stop=()=>{
+  sessionNo++;
+  if(unsub){unsub();unsub=null}
+  if(flushTimer)clearTimeout(flushTimer);
+  flushTimer=null;pending.clear();uid='';bridge.ready=false;bridge.email='';bridge.needsMigration=false;
+  currentMap=new Map();mapShadow=new Map();serverConfirmed=false;unlockDone=false;
+ };
+ function pushState(map){
+  currentMap=map;
+  const merged=new Map(map);
+  for(const [key,op] of pending){if(op===null)merged.delete(key);else merged.set(key,op)}
+  // Skip redundant UI redraws for local Firestore echoes. This preserves input focus
+  // while the user edits debt rates, balances or manual repayment amounts.
+  const wasUnlocked=unlockDone;
+  const before=wasUnlocked?mapFromState(financeApp.takeSnapshot()):new Map();
+  let changed=before.size!==merged.size;
+  if(!changed)for(const [key,value] of merged){if(!equal(before.get(key),value)){changed=true;break}}
+  mapShadow=new Map(merged);
+  if(!unlockDone){unlockDone=true;financeApp.enterCloud(bridge.email)}
+  if(!wasUnlocked||changed)financeApp.applyCloudSnapshot(stateFromMap(merged));
+ }
+ function onCloudSnapshot(snapshot,token){
+  if(token!==sessionNo)return;
+  const remote=new Map();
+  for(const document of snapshot.docs){const item=document.data();if(item&&typeof item.type==='string'&&item.payload && typeof item.payload==='object')remote.set(document.id,{type:item.type,payload:item.payload})}
+  if(!snapshot.metadata.fromCache)serverConfirmed=true;
+  // A fresh device must verify an empty collection against the server first.
+  if(!remote.size&&!serverConfirmed&&!unlockDone){updateStatus('Checking cloud…','warn');return}
+  bridge.ready=true;
+  bridge.needsMigration=serverConfirmed&&!hasRecords(remote)&&bridge.legacyRecordsAvailable();
+  pushState(remote);
+  updateStatus(snapshot.metadata.fromCache?'Offline / cached':'Cloud connected',snapshot.metadata.fromCache?'warn':'');
+  if(pending.size)updateStatus('Syncing changes…','warn');
+ }
+ const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+ function flush(){
+  if(!bridge.ready||!uid||!pending.size)return;
+  const token=sessionNo;
+  for(const [key,op] of [...pending.entries()]){
+   if(token!==sessionNo)return;
+   const ref=doc(db,'users',uid,'records',key);
+   const work=op===null?deleteDoc(ref):setDoc(ref,{...clone(op),updatedAt:serverTimestamp()});
+   work.then(()=>{
+    if(token!==sessionNo)return;
+    if(pending.has(key)&&equal(pending.get(key),op))pending.delete(key);
+    if(pending.size)updateStatus('Syncing changes…','warn');else updateStatus('Cloud synced');
+   }).catch(error=>{
+    if(token!==sessionNo)return;
+    updateStatus('Sync failed','bad');
+    financeApp.toast('Cloud update failed: '+bridge.friendlyError(error));
+   });
+  }
+ }
+ bridge.queueChanges=(next)=>{
+  if(!bridge.ready||!uid)return;
+  const changed=mapFromState(next),keys=new Set([...mapShadow.keys(),...changed.keys()]);
+  for(const key of keys){
+   const before=mapShadow.get(key),after=changed.get(key);
+   if(equal(before,after))continue;
+   pending.set(key,after===undefined?null:clone(after));
+  }
+  mapShadow=new Map(changed);
+  bridge.needsMigration=false;
+  if(flushTimer)clearTimeout(flushTimer);
+  updateStatus('Unsaved to cloud…','warn');
+  flushTimer=setTimeout(flush,450);
+ };
+ bridge.signIn=(email,password)=>signInWithEmailAndPassword(auth,email,password);
+ bridge.resetPassword=email=>sendPasswordResetEmail(auth,email);
+ bridge.retrySync=()=>{if(pending.size){updateStatus('Retrying sync…','warn');flush()}else financeApp.toast('No pending cloud changes.')} ;
+ bridge.signOut=()=>{if(pending.size){financeApp.toast('Changes are still syncing. Wait for Cloud synced before signing out.');return Promise.resolve()}return firebaseSignOut(auth)};
+ onAuthStateChanged(auth,user=>{
+  stop();
+  if(!user){financeApp.leaveCloud();return}
+  uid=user.uid;bridge.email=user.email||'';
+  updateStatus('Loading cloud…','warn');
+  const token=sessionNo;
+  unsub=onSnapshot(collection(db,'users',uid,'records'),{includeMetadataChanges:true},
+   snapshot=>onCloudSnapshot(snapshot,token),
+   error=>{
+    if(token!==sessionNo)return;
+    updateStatus('Cloud error','bad');
+    financeApp.leaveCloud('Cloud access failed: '+bridge.friendlyError(error));
+   });
+ }, error=>financeApp.leaveCloud(bridge.friendlyError(error)));
+}
+</script>
+</body>
+</html>
